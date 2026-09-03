@@ -1,30 +1,34 @@
-import Header from "./components/Header";
-import About from "./components/About";
-import Skills from "./components/Skills";
-import Projects from "./components/Projects";
-import Footer from "./components/Footer";
+import { useState } from "react";
+import { Routes, Route } from "react-router-dom";
+
+import Home from "./pages/Home";
+import Projects from "./pages/Projects";
+import Contact from "./pages/Contact";
+import NotFound from "./pages/NotFound";
+import NavBar from "./components/NavBar";
+
 function App() {
-  const skills = [
-    "Python",
-    "Machine Learning",
-    "React",
-    "JavaScript",
-    "SQL"
-  ];
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
+  };
 
   return (
-    <div>
-      <Header name="Jeel Pipaliya" />
-
-      <About
-        description="I am a B.Tech AIML student interested in Artificial Intelligence, Machine Learning and Web Development."
+    <div className={isDarkMode ? "app dark" : "app"}>
+      <NavBar
+        isDarkMode={isDarkMode}
+        toggleTheme={toggleTheme}
       />
 
-      <Skills skillList={skills} />
-
-      <Projects />
-
-      <Footer email="jeelpipaliya07@gmail.com" />
+      <main>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/projects" element={<Projects />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </main>
     </div>
   );
 }

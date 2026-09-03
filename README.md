@@ -1,16 +1,52 @@
-# React + Vite
+# Jeel's Portfolio
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React-based personal portfolio website developed using React and React Router.
 
-Currently, two official plugins are available:
+## Project Overview
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+This portfolio showcases my projects, skills, and contact information.
 
-## React Compiler
+The application was extended in Practical 2 to implement:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React Router
+- Multiple routes
+- Navigation using React Router `Link`
+- React `useState`
+- Controlled form input
+- Live character count
+- Show/Hide Help section
+- Dark/Light Mode
+- 404 Not Found page
 
-## Expanding the ESLint configuration
+## Technologies Used
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- React
+- JavaScript
+- React Router DOM
+- HTML
+- CSS
+- Vite
+- Node.js
+- npm
+
+## Application Routes
+
+| Route | Component | Description |
+|---|---|---|
+| `/` | Home | Displays the portfolio home page |
+| `/projects` | Projects | Displays my projects |
+| `/contact` | Contact | Contact page with controlled input |
+| `*` | NotFound | Displays 404 page for invalid routes |
+
+## React Router
+
+React Router is used to provide client-side navigation between different pages.
+
+The navigation bar uses React Router `Link` instead of normal HTML `<a>` tags.
+
+This allows navigation without a full page reload.
+
+Example:
+
+```jsx
+<Link to="/projects">Projects</Link>

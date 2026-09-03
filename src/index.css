@@ -1,7 +1,232 @@
+/* =========================
+   Global Styles
+========================= */
+
 * {
   box-sizing: border-box;
 }
 
-body {
+html,
+body,
+#root {
   margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* =========================
+   Main Application
+========================= */
+
+.app {
+  min-height: 100vh;
+  background-color: #f5f7fa;
+  color: #111;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* =========================
+   Navbar
+========================= */
+
+.navbar {
+  height: 80px;
+  background-color: #222;
+  color: white;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 0 40px;
+}
+
+.logo {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+}
+
+.nav-links a {
+  color: white;
+  text-decoration: none;
+  font-size: 16px;
+}
+
+.nav-links a:hover {
+  text-decoration: underline;
+}
+
+/* =========================
+   Main Content
+========================= */
+
+main {
+  max-width: 940px;
+  margin: 0 auto;
+  padding: 70px 20px;
+}
+
+h1 {
+  font-size: 40px;
+  margin-bottom: 25px;
+}
+
+h2 {
+  margin-bottom: 15px;
+}
+
+/* =========================
+   Projects
+========================= */
+
+.projects-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.project-card {
+  background-color: white;
+  padding: 25px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+
+  transition: background-color 0.3s ease,
+              color 0.3s ease,
+              transform 0.2s ease;
+}
+
+.project-card:hover {
+  transform: translateY(-3px);
+}
+
+.project-card h2 {
+  margin-top: 0;
+}
+
+/* =========================
+   Contact
+========================= */
+
+textarea {
+  width: 100%;
+  min-height: 145px;
+
+  padding: 15px;
+
+  font-size: 16px;
+
+  border: 1px solid #ccc;
+  border-radius: 8px;
+
+  resize: vertical;
+}
+
+textarea:focus {
+  outline: none;
+  border: 2px solid #222;
+}
+
+.help {
+  margin-top: 15px;
+  padding: 15px;
+
+  background-color: #e8f3ff;
+
+  border-radius: 8px;
+}
+
+/* =========================
+   Buttons
+========================= */
+
+button {
+  padding: 9px 16px;
+
+  border: none;
+  border-radius: 6px;
+
+  background-color: #222;
+  color: white;
+
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #444;
+}
+
+.theme-button {
+  padding: 8px 12px;
+
+  border: 1px solid white;
+  border-radius: 6px;
+
+  background: transparent;
+  color: white;
+
+  cursor: pointer;
+}
+
+.theme-button:hover {
+  background-color: #444;
+}
+
+/* =========================
+   DARK MODE
+========================= */
+
+.app.dark {
+  background-color: #121212;
+  color: #f5f5f5;
+}
+
+.app.dark .project-card {
+  background-color: #1e1e1e;
+  color: #f5f5f5;
+  border-color: #444;
+}
+
+.app.dark textarea {
+  background-color: #1e1e1e;
+  color: white;
+  border-color: #555;
+}
+
+.app.dark .help {
+  background-color: #1e1e1e;
+  color: white;
+}
+
+/* =========================
+   Responsive
+========================= */
+
+@media (max-width: 768px) {
+  .navbar {
+    padding: 0 20px;
+  }
+
+  .nav-links {
+    gap: 12px;
+  }
+
+  .projects-container {
+    grid-template-columns: 1fr;
+  }
+
+  main {
+    padding: 40px 20px;
+  }
 }
