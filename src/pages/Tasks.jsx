@@ -4,7 +4,11 @@ import {
   createTask,
   updateTask,
   deleteTask,
-  checkServerHealth
+  loginUser,
+  registerUser,
+  logoutUser,
+  getStoredUser,
+  getStoredToken
 } from "../api";
 import Toast from "../components/Toast";
 import ConfirmModal from "../components/ConfirmModal";
@@ -102,17 +106,30 @@ function Tasks() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [expandedLinks, setExpandedLinks] = useState({});
 
-  // Supplementary Problem 3: Multi-toast notifications state
+  // Practical 7: Authentication State
+  const [currentUser, setCurrentUser] = useState(getStoredUser());
+  const [isAuthenticated, setIsAuthenticated] = useState(Boolean(getStoredToken()));
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState("login"); // 'login' or 'register'
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [authForm, setAuthForm] = useState({
+    name: "Jeel Pipaliya",
+    email: "jeel@portfolio.dev",
+    password: "password123"
+  });
+
+  // Multi-toast notifications state (Supplementary 3)
   const [toasts, setToasts] = useState([]);
 
-  // Supplementary Problem 2: Delete confirmation modal state
+  // Delete confirmation modal state (Supplementary 2)
   const [deleteModal, setDeleteModal] = useState({
     isOpen: false,
     task: null,
     loading: false
   });
 
-  // Form State
+  // Task Form State
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -132,6 +149,22 @@ function Tasks() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
+  // Supplementary 2: Listen for 401 unauthorized / expired token events
+  useEffect(() => {
+    const handleUnauthorized = (e) => {
+      setIsAuthenticated(false);
+      setCurrentUser(null);
+      addToast(
+        e.detail?.message || "Session expired (HTTP 401). Please log in again.",
+        "warning",
+        "Session Expired (401)"
+      );
+    };
+
+    window.addEventListener("auth:unauthorized", handleUnauthorized);
+    return () => window.removeEventListener("auth:unauthorized", handleUnauthorized);
+  }, []);
+
   // Fetch tasks using central API client
   const fetchTasks = async (isManual = false) => {
     if (isManual) setIsRefreshing(true);
@@ -150,15 +183,19 @@ function Tasks() {
         );
       }
     } catch (err) {
-      console.warn("API Offline / Fallback:", err.message);
+      console.warn("Tasks Fetch Error:", err.message);
       setIsApiOnline(false);
-      setTasks((prev) => (prev.length > 0 ? prev : INITIAL_FALLBACK_TASKS));
-      if (isManual) {
+
+      if (err.status === 401) {
+        setIsAuthenticated(false);
+        setCurrentUser(null);
         addToast(
-          "Backend offline. Displaying cached milestones. Start backend with 'npm run server'.",
+          "JWT Authentication required to access protected task routes. Please log in.",
           "warning",
-          "Backend Offline"
+          "Authentication Required"
         );
+      } else {
+        setTasks((prev) => (prev.length > 0 ? prev : INITIAL_FALLBACK_TASKS));
       }
     } finally {
       setLoading(false);
@@ -166,11 +203,85 @@ function Tasks() {
     }
   };
 
+  // Initial auto-login demo session if token is empty
   useEffect(() => {
-    fetchTasks();
+    async function initAuth() {
+      if (!getStoredToken()) {
+        try {
+          const res = await loginUser({
+            email: "jeel@portfolio.dev",
+            password: "password123"
+          });
+          setCurrentUser(res.user);
+          setIsAuthenticated(true);
+        } catch {
+          // If demo login fails, leave unauthenticated
+        }
+      }
+      fetchTasks();
+    }
+    initAuth();
   }, []);
 
-  // Supplementary Problem 1: Optimistic UI Update for Task Creation
+  // Quick 1-Click Demo Login
+  const handleQuickDemoLogin = async () => {
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      const res = await loginUser({
+        email: "jeel@portfolio.dev",
+        password: "password123"
+      });
+      setCurrentUser(res.user);
+      setIsAuthenticated(true);
+      setShowAuthModal(false);
+      addToast("Logged in as Jeel Pipaliya (jeel@portfolio.dev) with JWT Token!", "success", "JWT Issued");
+      fetchTasks();
+    } catch (err) {
+      setAuthError(err.message);
+      addToast(err.message, "error", "Login Failed");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  // Custom Login/Register Form Submit
+  const handleAuthSubmit = async (e) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setAuthError("");
+
+    try {
+      let res;
+      if (authMode === "register") {
+        res = await registerUser(authForm);
+        addToast("Account created successfully with bcrypt password hashing!", "success", "Registered");
+      } else {
+        res = await loginUser({ email: authForm.email, password: authForm.password });
+        addToast("Logged in successfully! JWT token saved to session.", "success", "Authenticated");
+      }
+
+      setCurrentUser(res.user);
+      setIsAuthenticated(true);
+      setShowAuthModal(false);
+      fetchTasks();
+    } catch (err) {
+      setAuthError(err.message);
+      addToast(err.message, "error", "Auth Error");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  // Supplementary 3: Logout mechanism
+  const handleLogout = () => {
+    logoutUser();
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    addToast("Logged out successfully. JWT token cleared from client.", "info", "Session Ended");
+  };
+
+  // Supplementary 1: Optimistic UI Update for Task Creation
   const handleCreateTask = async (e) => {
     e.preventDefault();
     if (!formData.title.trim()) {
@@ -201,11 +312,10 @@ function Tasks() {
       }
     };
 
-    // 1. Immediately inject optimistic task into local state & close modal
     setTasks((prev) => [optimisticTask, ...prev]);
     setShowAddModal(false);
     addToast(
-      "Optimistic UI: Displaying new milestone immediately while persisting to MongoDB...",
+      "Optimistic UI: Rendering milestone immediately while persisting via JWT-protected API...",
       "info",
       "Optimistic Update"
     );
@@ -217,7 +327,6 @@ function Tasks() {
       priority: formData.priority.toLowerCase()
     };
 
-    // Reset form fields
     setFormData({
       title: "",
       description: "",
@@ -226,24 +335,21 @@ function Tasks() {
     });
 
     try {
-      // 2. Transmit POST /tasks to MongoDB via central api client
       const createdTask = await createTask(payload);
 
-      // 3. Replace optimistic placeholder with real confirmed MongoDB document
       setTasks((prev) =>
         prev.map((t) => (t._id === tempId ? { ...createdTask, isOptimistic: false } : t))
       );
 
       addToast(
-        `Milestone "${createdTask.title}" successfully persisted in MongoDB! (HTTP 201 Created)`,
+        `Milestone "${createdTask.title}" successfully saved in MongoDB! (HTTP 201 Created)`,
         "success",
         "Document Persisted"
       );
     } catch (err) {
-      // 4. Rollback optimistic task on failure
       setTasks((prev) => prev.filter((t) => t._id !== tempId));
       addToast(
-        `Failed to persist milestone: ${err.message}. Rolled back optimistic state.`,
+        `Failed to create task: ${err.message}. Rolled back optimistic state.`,
         "error",
         "Rollback Applied"
       );
@@ -257,7 +363,6 @@ function Tasks() {
     const targetId = task._id || task.id;
     const updatedCompleted = !task.completed;
 
-    // Optimistic toggle
     setTasks((prev) =>
       prev.map((t) =>
         (t._id === targetId || t.id === targetId)
@@ -272,12 +377,11 @@ function Tasks() {
         prev.map((t) => (t._id === targetId || t.id === targetId ? updatedTask : t))
       );
       addToast(
-        `Milestone status updated to ${updatedCompleted ? "Completed" : "In Progress"} (HTTP 200 OK)`,
+        `Milestone marked as ${updatedCompleted ? "Completed" : "In Progress"} (HTTP 200 OK)`,
         "success",
         "MongoDB Updated"
       );
     } catch (err) {
-      // Revert on error
       setTasks((prev) =>
         prev.map((t) =>
           (t._id === targetId || t.id === targetId)
@@ -289,7 +393,6 @@ function Tasks() {
     }
   };
 
-  // Supplementary Problem 2: Open Confirmation Dialog before deletion
   const requestDeleteTask = (task) => {
     setDeleteModal({
       isOpen: true,
@@ -298,7 +401,6 @@ function Tasks() {
     });
   };
 
-  // Execute deletion after confirmation
   const handleConfirmDelete = async () => {
     const taskToDelete = deleteModal.task;
     if (!taskToDelete) return;
@@ -308,13 +410,11 @@ function Tasks() {
 
     try {
       await deleteTask(targetId);
-
-      // Remove from state
       setTasks((prev) => prev.filter((t) => t._id !== targetId && t.id !== targetId));
       setDeleteModal({ isOpen: false, task: null, loading: false });
 
       addToast(
-        `Milestone "${taskToDelete.title}" permanently removed from MongoDB (HTTP 200 OK)`,
+        `Milestone "${taskToDelete.title}" permanently deleted from MongoDB (HTTP 200 OK)`,
         "success",
         "Task Deleted"
       );
@@ -331,7 +431,6 @@ function Tasks() {
     }));
   };
 
-  // Filter tasks by domain and completion status
   const filteredTasks = tasks.filter((task) => {
     const matchesCategory =
       selectedCategory === "All" || task.category === selectedCategory;
@@ -375,17 +474,80 @@ function Tasks() {
             ● Full Stack MongoDB Microservice
           </span>
           <span className="badge-pill badge-middleware">
-            🛡️ Centralized api.js Client
+            🛡️ JWT &amp; bcrypt Security
           </span>
           <span className="badge-pill badge-hateoas">
-            ⚡ Optimistic UI & Toasts
+            ⚡ Input Validation Pipeline
           </span>
         </div>
-        <h1 className="tasks-title">Engineering Roadmap & Sprint Hub</h1>
+        <h1 className="tasks-title">Engineering Roadmap &amp; Sprint Hub</h1>
         <p className="tasks-subtitle">
-          Real-time feature backlog, research milestones, and architectural roadmap for my AI/ML & Web engineering projects.
-          Connected directly to an Express.js backend with Mongoose ODM and MongoDB persistence.
+          Real-time feature backlog, research milestones, and architectural roadmap for my AI/ML &amp; Web engineering projects.
+          Protected by JSON Web Token (JWT) Bearer authentication and server-side request validation pipelines.
         </p>
+      </div>
+
+      {/* Authentication & User Session Bar (Practical 7) */}
+      <div className="auth-session-bar" style={{
+        background: isAuthenticated ? '#f0fdf4' : '#fff7ed',
+        border: `1px solid ${isAuthenticated ? '#86efac' : '#fdba74'}`,
+        borderRadius: '8px',
+        padding: '12px 18px',
+        marginBottom: '18px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '12px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '18px' }}>{isAuthenticated ? '🔒' : '🔓'}</span>
+          <div>
+            <div style={{ fontWeight: '700', fontSize: '13.5px', color: isAuthenticated ? '#15803d' : '#c2410c' }}>
+              {isAuthenticated
+                ? `JWT Authenticated: ${currentUser?.name || 'Developer'} (${currentUser?.email || 'jeel@portfolio.dev'})`
+                : 'JWT Authentication Required: Protected Routes Active'}
+            </div>
+            <div style={{ fontSize: '12px', color: '#64748b' }}>
+              {isAuthenticated
+                ? `Role: ${currentUser?.role || 'developer'} • Bearer token verified on all CRUD requests`
+                : 'Tasks API requires a valid JWT Bearer token in Authorization header'}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {isAuthenticated ? (
+            <button
+              className="btn btn-secondary"
+              onClick={handleLogout}
+              style={{ padding: '6px 14px', fontSize: '12.5px' }}
+            >
+              Sign Out (Clear JWT)
+            </button>
+          ) : (
+            <>
+              <button
+                className="btn btn-primary"
+                onClick={handleQuickDemoLogin}
+                disabled={authLoading}
+                style={{ padding: '6px 14px', fontSize: '12.5px' }}
+              >
+                {authLoading ? 'Signing In...' : '⚡ 1-Click Demo Login'}
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={() => {
+                  setAuthMode('login');
+                  setShowAuthModal(true);
+                }}
+                style={{ padding: '6px 14px', fontSize: '12.5px' }}
+              >
+                Login / Register
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Backend Status & Control Bar */}
@@ -394,12 +556,12 @@ function Tasks() {
           <span className={`status-dot ${isApiOnline ? "online" : "offline"}`}></span>
           <div className="status-text">
             <span className="status-headline">
-              {isApiOnline ? "MongoDB & Express Backend Active" : "Backend Offline (In-Memory Simulation)"}
+              {isApiOnline ? "MongoDB & JWT Auth Backend Active" : "Backend Offline / In-Memory Mode"}
             </span>
             <span className="status-subtext">
               {isApiOnline
-                ? "Connected to http://localhost:5000 • MongoDB 'portfolio_tasks' database active"
-                : "Run 'npm run server' in student-portfolio to connect live MongoDB database"}
+                ? "Connected to http://localhost:5000 • JWT Bearer Token active"
+                : "Run 'npm run server' in student-portfolio to connect backend"}
             </span>
           </div>
         </div>
@@ -418,39 +580,6 @@ function Tasks() {
           >
             + New Sprint Milestone
           </button>
-        </div>
-      </div>
-
-      {/* Architecture Visualizer Banner */}
-      <div className="middleware-visualizer-card">
-        <div className="visualizer-header">
-          <span className="visualizer-title">⚡ FULL-STACK REQUEST-RESPONSE PIPELINE (PRACTICAL 6)</span>
-        </div>
-        <div className="pipeline-steps">
-          <div className="pipeline-step client-step">
-            <span className="step-name">React UI</span>
-            <span className="step-desc">Port 5173</span>
-          </div>
-          <span className="pipeline-arrow">➔</span>
-          <div className="pipeline-step">
-            <span className="step-name">src/api.js</span>
-            <span className="step-desc">Central Client</span>
-          </div>
-          <span className="pipeline-arrow">➔</span>
-          <div className="pipeline-step">
-            <span className="step-name">Express CORS</span>
-            <span className="step-desc">Origin Guard</span>
-          </div>
-          <span className="pipeline-arrow">➔</span>
-          <div className="pipeline-step">
-            <span className="step-name">Mongoose ODM</span>
-            <span className="step-desc">Schema & Hooks</span>
-          </div>
-          <span className="pipeline-arrow">➔</span>
-          <div className="pipeline-step mongo-step">
-            <span className="step-name">MongoDB</span>
-            <span className="step-desc">tasks collection</span>
-          </div>
         </div>
       </div>
 
@@ -590,7 +719,7 @@ function Tasks() {
                 {expandedLinks[taskId] && (
                   <div className="hateoas-drawer">
                     <div className="hateoas-drawer-title">
-                      <span>MongoDB Document Metadata & Hypermedia Controls</span>
+                      <span>MongoDB Document Metadata &amp; Hypermedia Controls</span>
                       <span className="hateoas-tag">MongoDB BSON</span>
                     </div>
                     <pre className="hateoas-code">
@@ -608,9 +737,6 @@ function Tasks() {
                         2
                       )}
                     </pre>
-                    <div className="hateoas-drawer-note">
-                      Decoupled REST client navigation: State transitions are discovered dynamically at runtime via hypermedia links.
-                    </div>
                   </div>
                 )}
               </div>
@@ -619,7 +745,7 @@ function Tasks() {
         </div>
       )}
 
-      {/* Add Task Modal (Optimistic UI Enabled) */}
+      {/* Add Task Modal */}
       {showAddModal && (
         <div className="modal-backdrop" onClick={() => setShowAddModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -711,6 +837,112 @@ function Tasks() {
                   disabled={formSubmitting}
                 >
                   {formSubmitting ? "Persisting to MongoDB..." : "Create Milestone (Optimistic)"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Practical 7: Authentication Modal (Login / Register) */}
+      {showAuthModal && (
+        <div className="modal-backdrop" onClick={() => setShowAuthModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '420px' }}>
+            <div className="modal-header">
+              <h2>{authMode === 'login' ? 'Sign In to Sprint Hub' : 'Create Developer Account'}</h2>
+              <button
+                className="modal-close-btn"
+                onClick={() => setShowAuthModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', marginBottom: '16px' }}>
+              <button
+                style={{
+                  flex: 1,
+                  padding: '8px',
+                  background: 'none',
+                  border: 'none',
+                  borderBottom: authMode === 'login' ? '2px solid #2563eb' : 'none',
+                  fontWeight: authMode === 'login' ? '700' : '500',
+                  color: authMode === 'login' ? '#2563eb' : '#64748b',
+                  cursor: 'pointer'
+                }}
+                onClick={() => { setAuthMode('login'); setAuthError(''); }}
+              >
+                Sign In
+              </button>
+              <button
+                style={{
+                  flex: 1,
+                  padding: '8px',
+                  background: 'none',
+                  border: 'none',
+                  borderBottom: authMode === 'register' ? '2px solid #2563eb' : 'none',
+                  fontWeight: authMode === 'register' ? '700' : '500',
+                  color: authMode === 'register' ? '#2563eb' : '#64748b',
+                  cursor: 'pointer'
+                }}
+                onClick={() => { setAuthMode('register'); setAuthError(''); }}
+              >
+                Register
+              </button>
+            </div>
+
+            <form onSubmit={handleAuthSubmit} className="modal-form">
+              {authError && <div className="form-error-alert">{authError}</div>}
+
+              {authMode === 'register' && (
+                <div className="form-group">
+                  <label htmlFor="auth-name">Full Name</label>
+                  <input
+                    id="auth-name"
+                    type="text"
+                    value={authForm.name}
+                    onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
+                    required
+                  />
+                </div>
+              )}
+
+              <div className="form-group">
+                <label htmlFor="auth-email">Email Address</label>
+                <input
+                  id="auth-email"
+                  type="email"
+                  value={authForm.email}
+                  onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="auth-password">Password (bcrypt hashed)</label>
+                <input
+                  id="auth-password"
+                  type="password"
+                  value={authForm.password}
+                  onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="modal-actions" style={{ marginTop: '20px' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowAuthModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={authLoading}
+                >
+                  {authLoading ? 'Authenticating...' : authMode === 'login' ? 'Sign In & Get JWT' : 'Register with bcrypt'}
                 </button>
               </div>
             </form>
