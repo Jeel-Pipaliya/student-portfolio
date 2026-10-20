@@ -1,69 +1,101 @@
 import express from 'express';
 import cors from 'cors';
+import mongoose from 'mongoose';
+import 'dotenv/config';
+import Task from './models/Task.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/portfolio_tasks';
 
-// ============================================================================
-// 1. In-Memory Data Store (Portfolio Project Tasks)
-// ============================================================================
-let tasks = [
+let isMongoConnected = false;
+
+// Initial portfolio milestone seeds
+const INITIAL_SEEDS = [
   {
-    id: 1,
     title: 'SignBridge AI: Train Real-Time ISL Gesture Recognition Model',
     description: 'Optimize MediaPipe hand landmarks and train a lightweight TensorFlow LSTM classifier for sub-50ms inference.',
     category: 'AI/ML',
-    priority: 'High',
-    completed: true,
-    createdAt: new Date().toISOString()
+    priority: 'high',
+    completed: true
   },
   {
-    id: 2,
     title: 'CreditWise: Architect Flask Inference Service for Automated Risk Scoring',
     description: 'Implement automated creditworthiness evaluation pipeline using ensemble gradient boosted trees (LightGBM).',
     category: 'AI/ML',
-    priority: 'High',
-    completed: false,
-    createdAt: new Date().toISOString()
+    priority: 'high',
+    completed: false
   },
   {
-    id: 3,
     title: 'Portfolio: Build Express REST Engine with Middleware Pipeline',
     description: 'Implement centralized request logging, Content-Type negotiation, input sanitization, and structured error boundaries.',
     category: 'Web Dev',
-    priority: 'Medium',
-    completed: true,
-    createdAt: new Date().toISOString()
+    priority: 'medium',
+    completed: true
   },
   {
-    id: 4,
     title: 'REST Architecture: Deploy HATEOAS Dynamic Hypermedia Controls',
     description: 'Implement self-describing RESTful hypermedia contracts (_links) enabling autonomous client-driven resource state transitions.',
     category: 'Architecture',
-    priority: 'Medium',
-    completed: true,
-    createdAt: new Date().toISOString()
+    priority: 'medium',
+    completed: true
   },
   {
-    id: 5,
     title: 'DevOps: Automate Docker Containerization & GitHub CI/CD Workflows',
     description: 'Configure automated testing pipelines and multi-stage container builds for rapid deployment.',
     category: 'Cloud/DevOps',
-    priority: 'Medium',
-    completed: false,
-    createdAt: new Date().toISOString()
+    priority: 'medium',
+    completed: false
   }
 ];
+
+// In-Memory resilient fallback store if MongoDB daemon is offline
+let memoryTasks = INITIAL_SEEDS.map((s, index) => ({
+  ...s,
+  _id: `mem_${index + 1}`,
+  id: index + 1,
+  createdAt: new Date().toISOString()
+}));
+
+// ============================================================================
+// 1. MongoDB Database Connection with Mongoose ODM
+// ============================================================================
+async function connectDB() {
+  try {
+    await mongoose.connect(MONGO_URI, {
+      serverSelectionTimeoutMS: 2500
+    });
+    isMongoConnected = true;
+    console.log(`[MongoDB] Connected successfully to: ${MONGO_URI}`);
+
+    // Seed initial milestones if collection is empty
+    const count = await Task.countDocuments();
+    if (count === 0) {
+      await Task.insertMany(INITIAL_SEEDS);
+      console.log(`[MongoDB] Seeded ${INITIAL_SEEDS.length} initial portfolio milestones.`);
+    }
+  } catch (err) {
+    isMongoConnected = false;
+    console.warn(`[MongoDB Warning] Could not connect to MongoDB daemon (${err.message}).`);
+    console.warn(`[Resilience] Running in resilient in-memory Mongoose simulation mode.`);
+  }
+}
+
+connectDB();
 
 // Helper to append Level 3 HATEOAS hypermedia links
 const withLinks = (task, req) => {
   const baseUrl = `${req.protocol}://${req.get('host')}`;
+  const taskId = task._id ? task._id.toString() : task.id;
+  const taskObj = task.toObject ? task.toObject({ virtuals: true }) : { ...task, id: taskId };
+
   return {
-    ...task,
+    ...taskObj,
+    id: taskId,
     _links: {
-      self: { href: `${baseUrl}/tasks/${task.id}`, method: 'GET' },
-      update: { href: `${baseUrl}/tasks/${task.id}`, method: 'PUT' },
-      delete: { href: `${baseUrl}/tasks/${task.id}`, method: 'DELETE' },
+      self: { href: `${baseUrl}/tasks/${taskId}`, method: 'GET' },
+      update: { href: `${baseUrl}/tasks/${taskId}`, method: 'PUT' },
+      delete: { href: `${baseUrl}/tasks/${taskId}`, method: 'DELETE' },
       collection: { href: `${baseUrl}/tasks`, method: 'GET' }
     }
   };
@@ -73,7 +105,7 @@ const withLinks = (task, req) => {
 // 2. Global Middleware Pipeline
 // ============================================================================
 
-// Global Middleware 1: CORS (Allows React frontend at port 5173 to access API)
+// Global Middleware 1: CORS
 app.use(cors());
 
 // Global Middleware 2: Request Logger (Logs Method, URL, and Timestamp)
@@ -86,7 +118,7 @@ app.use((req, res, next) => {
 // Global Middleware 3: JSON Body Parser
 app.use(express.json());
 
-// Global Middleware 4 (Supplementary): Content-Type validation on POST/PUT/PATCH
+// Global Middleware 4: Supplementary Content-Type Validation (415)
 app.use((req, res, next) => {
   if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
     const contentType = req.headers['content-type'];
@@ -101,148 +133,266 @@ app.use((req, res, next) => {
 });
 
 // ============================================================================
-// 3. Route-Specific Middleware (Supplementary ID Validator)
-// ============================================================================
-const validateTaskId = (req, res, next) => {
-  const id = parseInt(req.params.id, 10);
-  if (isNaN(id) || id <= 0) {
-    return res.status(400).json({
-      error: 'Bad Request',
-      message: 'Task ID must be a positive integer'
-    });
-  }
-  req.taskId = id;
-  next();
-};
-
-// ============================================================================
-// 4. RESTful API Routes (CRUD Operations)
+// 3. RESTful CRUD Endpoints with Mongoose Model Methods
 // ============================================================================
 
 // Root API Health & Route Discovery endpoint
 app.get('/', (req, res) => {
   res.status(200).json({
-    message: 'Welcome to the Student Portfolio Engineering Roadmap & Sprint API',
-    version: '1.0.0',
+    message: 'Welcome to the Student Portfolio Tasks & MongoDB Mongoose API (Practical 5)',
+    version: '2.0.0',
+    database: isMongoConnected ? 'MongoDB Connected' : 'Resilient In-Memory Mode',
     endpoints: {
-      'GET /tasks': 'Retrieve all project tasks',
-      'GET /tasks/:id': 'Retrieve a specific task by ID',
-      'POST /tasks': 'Create a new task (requires JSON body with title)',
-      'PUT /tasks/:id': 'Update an existing task by ID',
-      'DELETE /tasks/:id': 'Remove a task by ID'
+      'GET /tasks': 'Retrieve all project tasks from MongoDB',
+      'GET /tasks/:id': 'Retrieve a specific task by MongoDB ObjectId',
+      'POST /tasks': 'Create a new task with Mongoose schema validation & pre-save hook',
+      'PUT /tasks/:id': 'Update an existing task with schema validators',
+      'DELETE /tasks/:id': 'Remove a task by ID from MongoDB'
     }
   });
 });
 
-// GET /tasks - Retrieve all tasks (Level 2 + Level 3 HATEOAS support)
-app.get('/tasks', (req, res) => {
-  const tasksWithLinks = tasks.map((t) => withLinks(t, req));
-  res.status(200).json({
-    count: tasks.length,
-    tasks: tasksWithLinks,
-    _links: {
-      self: { href: `${req.protocol}://${req.get('host')}/tasks`, method: 'GET' },
-      create: { href: `${req.protocol}://${req.get('host')}/tasks`, method: 'POST' }
+// GET /tasks - Retrieve all tasks (Mongoose Task.find())
+app.get('/tasks', async (req, res, next) => {
+  try {
+    if (isMongoConnected) {
+      const tasks = await Task.find().sort({ createdAt: -1 });
+      const tasksWithLinks = tasks.map((t) => withLinks(t, req));
+      return res.status(200).json({
+        count: tasks.length,
+        database: 'MongoDB',
+        tasks: tasksWithLinks,
+        _links: {
+          self: { href: `${req.protocol}://${req.get('host')}/tasks`, method: 'GET' },
+          create: { href: `${req.protocol}://${req.get('host')}/tasks`, method: 'POST' }
+        }
+      });
+    } else {
+      const tasksWithLinks = memoryTasks.map((t) => withLinks(t, req));
+      return res.status(200).json({
+        count: memoryTasks.length,
+        database: 'Resilient Memory',
+        tasks: tasksWithLinks,
+        _links: {
+          self: { href: `${req.protocol}://${req.get('host')}/tasks`, method: 'GET' },
+          create: { href: `${req.protocol}://${req.get('host')}/tasks`, method: 'POST' }
+        }
+      });
     }
-  });
+  } catch (err) {
+    next(err);
+  }
 });
 
-// GET /tasks/:id - Retrieve a single task by ID
-app.get('/tasks/:id', validateTaskId, (req, res) => {
-  const task = tasks.find((t) => t.id === req.taskId);
-  if (!task) {
-    return res.status(404).json({
-      error: 'Not Found',
-      message: `Task with ID ${req.taskId} does not exist`
-    });
+// GET /tasks/:id - Retrieve single task (Mongoose Task.findById())
+// Supplementary Problem 3: Return structured 404 JSON if ID does not exist
+app.get('/tasks/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    if (isMongoConnected && mongoose.Types.ObjectId.isValid(id)) {
+      const task = await Task.findById(id);
+      if (!task) {
+        return res.status(404).json({
+          error: 'Not Found',
+          message: `Task with ID ${id} does not exist in database`
+        });
+      }
+      return res.status(200).json(withLinks(task, req));
+    }
+
+    // In-memory or non-ObjectId fallback
+    const memTask = memoryTasks.find((t) => t.id == id || t._id === id);
+    if (!memTask) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: `Task with ID ${id} does not exist`
+      });
+    }
+    return res.status(200).json(withLinks(memTask, req));
+  } catch (err) {
+    if (err.name === 'CastError') {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: `Task with ID ${req.params.id} does not exist`
+      });
+    }
+    next(err);
   }
-  res.status(200).json(withLinks(task, req));
 });
 
-// POST /tasks - Create a new task
-app.post('/tasks', (req, res) => {
-  const { title, description, category, priority } = req.body;
+// POST /tasks - Create task (Mongoose Task.create() / new Task().save())
+// Enforces required title, enum priority, and pre-save title trim hook
+app.post('/tasks', async (req, res, next) => {
+  try {
+    const { title, description, category, priority } = req.body;
 
-  if (!title || typeof title !== 'string' || title.trim() === '') {
-    return res.status(400).json({
-      error: 'Bad Request',
-      message: 'Validation failed: title is required and cannot be empty'
+    // Schema-level validation check via Mongoose Model
+    const taskDoc = new Task({
+      title,
+      description,
+      category,
+      priority
     });
+
+    // Validate using Mongoose schema validation rules
+    const validationError = taskDoc.validateSync();
+    if (validationError) {
+      const formattedErrors = Object.keys(validationError.errors).map(
+        (key) => validationError.errors[key].message
+      );
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: formattedErrors.join(', '),
+        fields: Object.keys(validationError.errors)
+      });
+    }
+
+    if (isMongoConnected) {
+      // .save() executes Mongoose pre-save trim hook automatically!
+      const savedTask = await taskDoc.save();
+      return res.status(201).json(withLinks(savedTask, req));
+    }
+
+    // In-memory fallback with pre-save trim applied
+    const nextId = memoryTasks.length > 0 ? Math.max(...memoryTasks.map((t) => Number(t.id) || 0)) + 1 : 1;
+    const newTask = {
+      _id: `mem_${nextId}`,
+      id: nextId,
+      title: title ? title.trim() : '',
+      description: description ? description.trim() : '',
+      category: category ? category.trim() : 'General',
+      priority: priority ? priority.trim().toLowerCase() : 'medium',
+      completed: false,
+      createdAt: new Date().toISOString()
+    };
+    memoryTasks.push(newTask);
+    return res.status(201).json(withLinks(newTask, req));
+  } catch (err) {
+    if (err.name === 'ValidationError') {
+      const messages = Object.values(err.errors).map((e) => e.message);
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: messages.join(', '),
+        details: messages
+      });
+    }
+    next(err);
   }
-
-  const nextId = tasks.length > 0 ? Math.max(...tasks.map((t) => t.id)) + 1 : 1;
-  const newTask = {
-    id: nextId,
-    title: title.trim(),
-    description: description ? description.trim() : '',
-    category: category ? category.trim() : 'General',
-    priority: priority ? priority.trim() : 'Medium',
-    completed: false,
-    createdAt: new Date().toISOString()
-  };
-
-  tasks.push(newTask);
-  res.status(201).json(withLinks(newTask, req));
 });
 
-// PUT /tasks/:id - Update an existing task
-app.put('/tasks/:id', validateTaskId, (req, res) => {
-  const taskIndex = tasks.findIndex((t) => t.id === req.taskId);
-  if (taskIndex === -1) {
-    return res.status(404).json({
-      error: 'Not Found',
-      message: `Task with ID ${req.taskId} does not exist`
-    });
+// PUT /tasks/:id - Update task (Mongoose Task.findByIdAndUpdate())
+app.put('/tasks/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { title, description, category, priority, completed } = req.body;
+
+    const updates = {};
+    if (title !== undefined) updates.title = title.trim();
+    if (description !== undefined) updates.description = description.trim();
+    if (category !== undefined) updates.category = category.trim();
+    if (priority !== undefined) updates.priority = priority.toLowerCase();
+    if (completed !== undefined) updates.completed = Boolean(completed);
+
+    if (isMongoConnected && mongoose.Types.ObjectId.isValid(id)) {
+      const updatedTask = await Task.findByIdAndUpdate(id, updates, {
+        new: true,
+        runValidators: true
+      });
+
+      if (!updatedTask) {
+        return res.status(404).json({
+          error: 'Not Found',
+          message: `Task with ID ${id} does not exist in database`
+        });
+      }
+      return res.status(200).json(withLinks(updatedTask, req));
+    }
+
+    // In-memory fallback
+    const index = memoryTasks.findIndex((t) => t.id == id || t._id === id);
+    if (index === -1) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: `Task with ID ${id} does not exist`
+      });
+    }
+
+    memoryTasks[index] = {
+      ...memoryTasks[index],
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+
+    return res.status(200).json(withLinks(memoryTasks[index], req));
+  } catch (err) {
+    if (err.name === 'ValidationError') {
+      const messages = Object.values(err.errors).map((e) => e.message);
+      return res.status(400).json({
+        error: 'Validation Error',
+        message: messages.join(', ')
+      });
+    }
+    if (err.name === 'CastError') {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: `Task with ID ${req.params.id} does not exist`
+      });
+    }
+    next(err);
   }
-
-  const { title, description, category, priority, completed } = req.body;
-
-  if (title !== undefined && (typeof title !== 'string' || title.trim() === '')) {
-    return res.status(400).json({
-      error: 'Bad Request',
-      message: 'Validation failed: title must be a non-empty string'
-    });
-  }
-
-  tasks[taskIndex] = {
-    ...tasks[taskIndex],
-    title: title !== undefined ? title.trim() : tasks[taskIndex].title,
-    description: description !== undefined ? description.trim() : tasks[taskIndex].description,
-    category: category !== undefined ? category.trim() : tasks[taskIndex].category,
-    priority: priority !== undefined ? priority.trim() : tasks[taskIndex].priority,
-    completed: completed !== undefined ? Boolean(completed) : tasks[taskIndex].completed,
-    updatedAt: new Date().toISOString()
-  };
-
-  res.status(200).json(withLinks(tasks[taskIndex], req));
 });
 
-// DELETE /tasks/:id - Delete a task
-app.delete('/tasks/:id', validateTaskId, (req, res) => {
-  const taskIndex = tasks.findIndex((t) => t.id === req.taskId);
-  if (taskIndex === -1) {
-    return res.status(404).json({
-      error: 'Not Found',
-      message: `Task with ID ${req.taskId} does not exist`
-    });
-  }
+// DELETE /tasks/:id - Delete task (Mongoose Task.findByIdAndDelete())
+app.delete('/tasks/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
 
-  const deletedTask = tasks.splice(taskIndex, 1)[0];
-  res.status(200).json({
-    message: `Task ${req.taskId} deleted successfully`,
-    deletedTask: withLinks(deletedTask, req)
-  });
+    if (isMongoConnected && mongoose.Types.ObjectId.isValid(id)) {
+      const deletedTask = await Task.findByIdAndDelete(id);
+      if (!deletedTask) {
+        return res.status(404).json({
+          error: 'Not Found',
+          message: `Task with ID ${id} does not exist in database`
+        });
+      }
+      return res.status(200).json({
+        message: `Task ${id} deleted successfully from MongoDB`,
+        deletedTask: withLinks(deletedTask, req)
+      });
+    }
+
+    // In-memory fallback
+    const index = memoryTasks.findIndex((t) => t.id == id || t._id === id);
+    if (index === -1) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: `Task with ID ${id} does not exist`
+      });
+    }
+
+    const deleted = memoryTasks.splice(index, 1)[0];
+    return res.status(200).json({
+      message: `Task ${id} deleted successfully`,
+      deletedTask: withLinks(deleted, req)
+    });
+  } catch (err) {
+    if (err.name === 'CastError') {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: `Task with ID ${req.params.id} does not exist`
+      });
+    }
+    next(err);
+  }
 });
 
 // Deliberate test error endpoint for verifying global error handler
 app.get('/test-error', (req, res, next) => {
-  const testError = new Error('Simulated internal server exception for Practical 4 verification');
-  next(testError);
+  next(new Error('Simulated internal server exception for Practical 5 verification'));
 });
 
-// ============================================================================
-// 5. Undefined Route 404 Handler Middleware
-// ============================================================================
+// Undefined Route 404 Handler Middleware
 app.use((req, res) => {
   res.status(404).json({
     error: 'Not Found',
@@ -250,9 +400,7 @@ app.use((req, res) => {
   });
 });
 
-// ============================================================================
-// 6. Global Error Handling Middleware (Must be defined last)
-// ============================================================================
+// Centralized Global Error Handling Middleware (4 arguments)
 app.use((err, req, res, next) => {
   console.error(`[Error Handler] ${err.name}: ${err.message}`);
   res.status(500).json({
