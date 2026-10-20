@@ -50,3 +50,17 @@ Example:
 
 ```jsx
 <Link to="/projects">Projects</Link>
+```
+
+## Practical 3: REST API Integration
+
+The application was extended in **Practical 3** to integrate external asynchronous data fetching via the **GitHub REST API**:
+
+- **API Endpoint:** `https://api.github.com/users/Jeel-Pipaliya/repos`
+- **Asynchronous Lifecycle:** Utilizes `useEffect` to trigger fetch requests upon component mount.
+- **Asynchronous State Management:**
+  - `loading`: Displays a custom animated `<Spinner />` while data is retrieved.
+  - `error`: Displays `<ErrorMessage />` with a **Retry** button if network or API failures occur.
+  - `repos`: Dynamically stores and renders repository cards with direct GitHub links, descriptions, languages, and star counts (`⭐`).
+- **Real-Time Search & Filtering:** Includes a responsive search bar to filter repositories by name or description.
+- **Dark Mode Support:** Fully integrated dark and light styling for repository cards, search input, and loading states.
