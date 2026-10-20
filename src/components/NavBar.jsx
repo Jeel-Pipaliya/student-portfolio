@@ -14,6 +14,10 @@ function NavBar({ isDarkMode, toggleTheme }) {
           Projects
         </Link>
 
+        <Link to="/tasks">
+          Tasks & API
+        </Link>
+
         <Link to="/contact">
           Contact
         </Link>
