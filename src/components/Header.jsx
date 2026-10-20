@@ -1,6 +1,6 @@
-function Header({ name }) {
+function Header({ name, themeColor }) {
   return (
-    <header className="header">
+    <header className="header" style={themeColor ? { backgroundColor: themeColor } : undefined}>
       <h1>{name}</h1>
       <p>Student Portfolio</p>
     </header>

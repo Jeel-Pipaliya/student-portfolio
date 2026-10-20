@@ -40,6 +40,65 @@ body {
   color: #61dafb;
 }
 
+.theme-button {
+  background: #333;
+  color: white;
+  border: 1px solid #555;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.theme-button:hover {
+  background: #444;
+}
+
+/* Dark Mode */
+.app.dark {
+  background-color: #121212;
+  color: #e0e0e0;
+  min-height: 100vh;
+}
+
+.app.dark .section {
+  background: #1e1e1e;
+  color: #e0e0e0;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.4);
+}
+
+.app.dark .section h2 {
+  color: #93c5fd;
+}
+
+.app.dark .skills-list li {
+  background: #1e293b;
+  color: #93c5fd;
+}
+
+.app.dark .projects-list li {
+  background: #262626;
+  border-left-color: #3b82f6;
+  color: #e0e0e0;
+}
+
+.app.dark .project-card {
+  background: #1e1e1e;
+  border-color: #333;
+  color: #e0e0e0;
+}
+
+.app.dark .contact-form textarea {
+  background: #1e1e1e;
+  color: #e0e0e0;
+  border-color: #444;
+}
+
+.app.dark .help {
+  background: #1e293b;
+  color: #e0e0e0;
+}
+
 /* Pages */
 
 .page {

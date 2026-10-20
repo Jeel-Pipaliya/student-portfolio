@@ -1,17 +1,32 @@
+import Header from "../components/Header";
+import About from "../components/About";
+import Skills from "../components/Skills";
+import Projects from "../components/Projects";
+import Footer from "../components/Footer";
+
 function Home() {
+  const skills = [
+    "Python",
+    "Machine Learning",
+    "React",
+    "JavaScript",
+    "SQL"
+  ];
+
   return (
-    <section className="page">
-      <h1>Welcome to My Portfolio</h1>
+    <div>
+      <Header name="Jeel Pipaliya" />
 
-      <p>
-        Hello! I am Jeel, an AIML student interested in
-        Artificial Intelligence, Machine Learning and Web Development.
-      </p>
+      <About
+        description="I am a B.Tech AIML student interested in Artificial Intelligence, Machine Learning and Web Development."
+      />
 
-      <p>
-        This portfolio showcases my projects, skills and contact information.
-      </p>
-    </section>
+      <Skills skillList={skills} />
+
+      <Projects />
+
+      <Footer email="jeelpipaliya07@gmail.com" />
+    </div>
   );
 }
 
