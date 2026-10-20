@@ -236,8 +236,9 @@ app.post('/tasks', async (req, res, next) => {
     });
 
     // Validate using Mongoose schema validation rules
-    const validationError = taskDoc.validateSync();
-    if (validationError) {
+    try {
+      await taskDoc.validate();
+    } catch (validationError) {
       const formattedErrors = Object.keys(validationError.errors).map(
         (key) => validationError.errors[key].message
       );
