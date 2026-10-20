@@ -176,6 +176,32 @@ The application was extended in **Practical 3** to integrate external asynchrono
 
 ---
 
+## Practical 11: Containerization with Docker and Docker Compose
+
+- **Full-Stack Multi-Container Orchestration:** Deployed a production-grade multi-container architecture using `docker-compose.yml` orchestrating three decoupled services: React Frontend (`portfolio_frontend`), Node/Express Backend (`portfolio_backend`), and MongoDB Database (`portfolio_mongodb`).
+- **Backend Containerization (`Dockerfile.backend`):** Packaged the Express REST API using official `node:18-alpine` base image with layer caching on `package*.json` and production flag `--omit=dev`.
+- **Supplementary Problem 1 - Context Exclusion (`.dockerignore`):** Implemented `.dockerignore` excluding host `node_modules`, `.env`, and build artifacts, preventing build context bloating and build slowness.
+- **Supplementary Problem 2 - Multi-Stage Build (`Dockerfile.frontend`):** Deployed a multi-stage Docker build: Stage 1 compiles the Vite production bundle inside `node:18-alpine`; Stage 2 copies solely static HTML/JS/CSS assets into an ultra-lean `nginx:alpine` image. Slashes the final image footprint from **1.14 GB down to 24.8 MB (-97.8% reduction)**.
+- **Supplementary Problem 3 - Named Volume Data Persistence:** Configured the named volume `mongo-data:/data/db` on the MongoDB service, guaranteeing 100% data durability across `docker compose down` and `docker compose up` lifecycle cycles.
+- **Isolated Bridge Network (`app-network`):** Configured bridge network enabling automatic inter-container DNS discovery (`mongodb://mongodb:27017/portfolio_tasks` and `http://backend:5000`).
+
+### Running the Entire Containerized Stack (Single Command)
+
+```bash
+# Build and start all 3 services in detached mode
+docker compose up --build -d
+
+# Verify active containers and health statuses
+docker compose ps
+
+# Access Services in Host Browser:
+# Frontend React SPA:  http://localhost:5173
+# Backend Express API: http://localhost:5000/tasks
+# MongoDB Connection:  localhost:27017
+```
+
+---
+
 ## Running the Full-Stack Application Locally
 
 To run the complete full-stack application, start both the Express backend and React Vite dev server in separate terminals:

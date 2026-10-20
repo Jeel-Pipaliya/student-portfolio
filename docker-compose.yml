@@ -1,0 +1,84 @@
+version: '3.8'
+
+# =============================================================================
+# Practical 11: Containerization with Docker and Docker Compose
+# Full-Stack Orchestration: React Frontend + Node/Express Backend + MongoDB
+# Course: ITUE301 | Student: 24AIML051 _Jeel_Pipaliya
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # 1. Database Service: Official MongoDB Container
+  # ---------------------------------------------------------------------------
+  mongodb:
+    image: mongo:6
+    container_name: portfolio_mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      # Supplementary Problem 3: Named persistent volume for MongoDB
+      - mongo-data:/data/db
+    networks:
+      - app-network
+    environment:
+      - MONGO_INITDB_DATABASE=portfolio_tasks
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # 2. Backend Service: Node.js / Express REST API (Practical 4-10)
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: portfolio_backend
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      # Critical: Resolves MongoDB via Docker container service name
+      - MONGO_URI=mongodb://mongodb:27017/portfolio_tasks
+      - JWT_SECRET=super_secret_jwt_key_practical_7_24AIML051
+      - NODE_ENV=production
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  # ---------------------------------------------------------------------------
+  # 3. Frontend Service: Multi-Stage Built React Portfolio (Practicals 1-3, 6, 8)
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: portfolio_frontend
+    restart: always
+    ports:
+      # Maps host port 5173 to container Nginx port 80
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+# =============================================================================
+# Supplementary Problem 1 & 3: Isolated Network and Named Persistent Volume
+# =============================================================================
+networks:
+  app-network:
+    driver: bridge
+    name: portfolio_app_network
+
+volumes:
+  # Supplementary Problem 3: Named volume ensuring data persists across restarts
+  mongo-data:
+    name: portfolio_mongo_data

@@ -1,0 +1,17 @@
+# Practical 11: Docker Ignore File
+# Prevents bloated context transfer and ensures clean dependency builds inside containers
+
+node_modules
+npm-debug.log
+.git
+.gitignore
+.env
+.env.local
+.env.*.local
+dist
+build
+.system_generated
+scratch
+*.docx
+*.pdf
+.DS_Store
