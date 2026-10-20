@@ -905,24 +905,58 @@ main {
   margin-bottom: 12px;
 }
 
-.badge-academic {
+.badge-tech {
   display: inline-flex;
   align-items: center;
-  padding: 4px 12px;
-  background: #eff6ff;
-  color: #1d4ed8;
+  gap: 6px;
+  padding: 5px 13px;
+  background: #ecfdf5;
+  color: #065f46;
   font-size: 12px;
   font-weight: 600;
   border-radius: 9999px;
-  border: 1px solid #bfdbfe;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  border: 1px solid #a7f3d0;
+  letter-spacing: 0.3px;
 }
 
-.badge-academic.badge-rmm {
+.live-dot-inline {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
+  display: inline-block;
+  animation: pulse-green 1.5s infinite;
+}
+
+.badge-tech.badge-purple {
   background: #faf5ff;
-  color: #7e22ce;
+  color: #6b21a8;
   border-color: #e9d5ff;
+}
+
+.badge-tech.badge-cyan {
+  background: #f0fdfa;
+  color: #0f766e;
+  border-color: #99f6e4;
+}
+
+.app.dark .badge-tech {
+  background: #064e3b;
+  color: #a7f3d0;
+  border-color: #059669;
+}
+
+.app.dark .badge-tech.badge-purple {
+  background: #3b0764;
+  color: #e9d5ff;
+  border-color: #7e22ce;
+}
+
+.app.dark .badge-tech.badge-cyan {
+  background: #134e4a;
+  color: #99f6e4;
+  border-color: #14b8a6;
 }
 
 .tasks-title {

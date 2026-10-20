@@ -5,8 +5,8 @@ const API_BASE_URL = "http://localhost:5000";
 const INITIAL_FALLBACK_TASKS = [
   {
     id: 1,
-    title: "SignBridge AI: Train Indian Sign Language Gesture Classifier",
-    description: "Optimize MediaPipe hand landmarks and train a lightweight TensorFlow classification model for real-time inference.",
+    title: "SignBridge AI: Train Real-Time ISL Gesture Recognition Model",
+    description: "Optimize MediaPipe hand landmarks and train a lightweight TensorFlow LSTM classifier for sub-50ms inference.",
     category: "AI/ML",
     priority: "High",
     completed: true,
@@ -20,8 +20,8 @@ const INITIAL_FALLBACK_TASKS = [
   },
   {
     id: 2,
-    title: "CreditWise: Build Flask Inference Service for Loan Approvals",
-    description: "Create an automated pipeline for risk scoring, creditworthiness prediction, and deployment.",
+    title: "CreditWise: Architect Flask Inference Service for Automated Risk Scoring",
+    description: "Implement automated creditworthiness evaluation pipeline using ensemble gradient boosted trees (LightGBM).",
     category: "AI/ML",
     priority: "High",
     completed: false,
@@ -35,8 +35,8 @@ const INITIAL_FALLBACK_TASKS = [
   },
   {
     id: 3,
-    title: "Portfolio: Implement Express REST API and Middleware Pipeline",
-    description: "Build robust CRUD endpoints, request logger, content-type checks, and centralized error handling (Practical 4).",
+    title: "Portfolio: Build Express REST Engine with Middleware Pipeline",
+    description: "Implement centralized request logging, Content-Type negotiation, input sanitization, and structured error boundaries.",
     category: "Web Dev",
     priority: "Medium",
     completed: true,
@@ -50,16 +50,31 @@ const INITIAL_FALLBACK_TASKS = [
   },
   {
     id: 4,
-    title: "Portfolio: Evaluate Richardson Maturity Model (Assignment 1)",
-    description: "Analyze endpoints against Levels 0 through 3 and document HATEOAS link structures in MATURITY.md.",
-    category: "Documentation",
+    title: "REST Architecture: Deploy HATEOAS Dynamic Hypermedia Controls",
+    description: "Implement self-describing RESTful hypermedia contracts (_links) enabling autonomous client-driven resource state transitions.",
+    category: "Architecture",
     priority: "Medium",
-    completed: false,
+    completed: true,
     createdAt: new Date().toISOString(),
     _links: {
       self: { href: "http://localhost:5000/tasks/4", method: "GET" },
       update: { href: "http://localhost:5000/tasks/4", method: "PUT" },
       delete: { href: "http://localhost:5000/tasks/4", method: "DELETE" },
+      collection: { href: "http://localhost:5000/tasks", method: "GET" }
+    }
+  },
+  {
+    id: 5,
+    title: "DevOps: Automate Docker Containerization & GitHub CI/CD Workflows",
+    description: "Configure automated testing pipelines and multi-stage container builds for rapid deployment.",
+    category: "Cloud/DevOps",
+    priority: "Medium",
+    completed: false,
+    createdAt: new Date().toISOString(),
+    _links: {
+      self: { href: "http://localhost:5000/tasks/5", method: "GET" },
+      update: { href: "http://localhost:5000/tasks/5", method: "PUT" },
+      delete: { href: "http://localhost:5000/tasks/5", method: "DELETE" },
       collection: { href: "http://localhost:5000/tasks", method: "GET" }
     }
   }
@@ -140,10 +155,10 @@ function Tasks() {
           prev.map((t) => (t.id === task.id ? updatedTask : t))
         );
         showToast(
-          `Task #${task.id} updated (HTTP 200 OK): ${updatedCompleted ? "Completed" : "In Progress"}`
+          `Milestone #${task.id} updated (HTTP 200 OK): ${updatedCompleted ? "Completed" : "In Progress"}`
         );
       } catch (err) {
-        showToast(`Error updating task: ${err.message}`, "error");
+        showToast(`Error updating milestone: ${err.message}`, "error");
       }
     } else {
       // Local client fallback
@@ -153,14 +168,14 @@ function Tasks() {
         )
       );
       showToast(
-        `Task #${task.id} updated locally (Start server with 'npm run server' for live persistence)`
+        `Milestone #${task.id} updated locally (Start backend with 'npm run server' for live persistence)`
       );
     }
   };
 
   // Delete Task (DELETE /tasks/:id)
   const handleDeleteTask = async (taskId) => {
-    if (!window.confirm(`Are you sure you want to delete Task #${taskId}?`)) {
+    if (!window.confirm(`Are you sure you want to remove Milestone #${taskId}?`)) {
       return;
     }
 
@@ -175,13 +190,13 @@ function Tasks() {
         }
 
         setTasks((prev) => prev.filter((t) => t.id !== taskId));
-        showToast(`Task #${taskId} deleted successfully (HTTP 200 OK)`);
+        showToast(`Milestone #${taskId} deleted successfully (HTTP 200 OK)`);
       } catch (err) {
-        showToast(`Error deleting task: ${err.message}`, "error");
+        showToast(`Error deleting milestone: ${err.message}`, "error");
       }
     } else {
       setTasks((prev) => prev.filter((t) => t.id !== taskId));
-      showToast(`Task #${taskId} deleted locally`);
+      showToast(`Milestone #${taskId} removed locally`);
     }
   };
 
@@ -189,7 +204,7 @@ function Tasks() {
   const handleCreateTask = async (e) => {
     e.preventDefault();
     if (!formData.title.trim()) {
-      setFormError("Task title is required.");
+      setFormError("Milestone title is required.");
       return;
     }
 
@@ -221,7 +236,7 @@ function Tasks() {
           priority: "Medium"
         });
         showToast(
-          `Task #${createdTask.id} created successfully (HTTP 201 Created)!`
+          `Milestone #${createdTask.id} created successfully (HTTP 201 Created)!`
         );
       } catch (err) {
         setFormError(`Server error: ${err.message}`);
@@ -258,7 +273,7 @@ function Tasks() {
       });
       setFormSubmitting(false);
       showToast(
-        `Task #${nextId} created locally (Start server with 'npm run server' for live persistence)`
+        `Milestone #${nextId} created locally (Start backend with 'npm run server' for live persistence)`
       );
     }
   };
@@ -300,14 +315,21 @@ function Tasks() {
       {/* Header Section */}
       <div className="tasks-header">
         <div className="header-badges">
-          <span className="badge-academic">Practical 4: Express RESTful API</span>
-          <span className="badge-academic badge-rmm">Assignment 1: Richardson Maturity Model</span>
+          <span className="badge-tech">
+            <span className="live-dot-inline"></span> Live REST API Microservice
+          </span>
+          <span className="badge-tech badge-purple">
+            🛡️ Middleware Pipeline & Telemetry
+          </span>
+          <span className="badge-tech badge-cyan">
+            🔗 HATEOAS Hypermedia Engine
+          </span>
         </div>
-        <h1 className="tasks-title">Portfolio Project Milestones & Tasks</h1>
+        <h1 className="tasks-title">Engineering Roadmap & Sprint Hub</h1>
         <p className="tasks-subtitle">
-          Live RESTful API backend built with Node.js and Express featuring full CRUD operations,
-          custom middleware pipeline (request logging, Content-Type enforcement, ID validator),
-          centralized error handling, and Richardson Maturity Level 3 HATEOAS hypermedia links.
+          Real-time feature backlog, research milestones, and architectural roadmap for my AI/ML & Web
+          engineering projects. Interacting live with an asynchronous Express.js REST API featuring centralized
+          request telemetry, schema validation, and self-describing HATEOAS discovery.
         </p>
       </div>
 
@@ -316,39 +338,39 @@ function Tasks() {
         <div className="status-indicator-group">
           <span className="status-dot"></span>
           <div>
-            <strong>{isApiOnline ? "Live Express REST API Active" : "Express Backend Not Detected"}</strong>
+            <strong>{isApiOnline ? "Express Backend Microservice Active" : "Backend Microservice Offline"}</strong>
             <p className="status-desc">
               {isApiOnline
-                ? `Connected to ${API_BASE_URL} • Global Request Logger & HATEOAS active`
-                : "Displaying cached portfolio state. Run `npm run server` in a new terminal to start Express on port 5000."}
+                ? `Connected to ${API_BASE_URL} • Live Request Telemetry & HATEOAS Contract Active`
+                : "Displaying cached local state. Run `npm run server` in a terminal to activate live Node.js/Express persistence."}
             </p>
           </div>
         </div>
         <div className="status-actions">
           <button className="refresh-btn" onClick={fetchTasks} title="Check API Connection">
-            🔄 Recheck API
+            🔄 Recheck Connection
           </button>
           <button className="add-task-btn" onClick={() => setShowAddModal(true)}>
-            + Add Milestone Task
+            + New Sprint Milestone
           </button>
         </div>
       </div>
 
       {/* Middleware Pipeline Visualizer */}
       <div className="pipeline-card">
-        <div className="pipeline-title">⚡ Express.js Middleware Pipeline Architecture</div>
+        <div className="pipeline-title">⚡ Express.js Request-Response Architecture & Telemetry Pipeline</div>
         <div className="pipeline-flow">
           <div className="pipeline-step step-client">Client Request</div>
           <div className="pipeline-arrow">➔</div>
-          <div className="pipeline-step">CORS & Logger</div>
+          <div className="pipeline-step">CORS & Telemetry Logger</div>
           <div className="pipeline-arrow">➔</div>
           <div className="pipeline-step">JSON Parser</div>
           <div className="pipeline-arrow">➔</div>
-          <div className="pipeline-step">Content-Type / ID Validator</div>
+          <div className="pipeline-step">Content-Type & ID Guard</div>
           <div className="pipeline-arrow">➔</div>
-          <div className="pipeline-step step-router">Express CRUD Router</div>
+          <div className="pipeline-step step-router">REST CRUD Router</div>
           <div className="pipeline-arrow">➔</div>
-          <div className="pipeline-step step-error">404 / 500 Error Handler</div>
+          <div className="pipeline-step step-error">Error Interceptor</div>
         </div>
       </div>
 
@@ -360,11 +382,11 @@ function Tasks() {
         </div>
         <div className="stat-card completed">
           <div className="stat-value">{completedCount}</div>
-          <div className="stat-label">Completed Tasks</div>
+          <div className="stat-label">Completed Milestones</div>
         </div>
         <div className="stat-card pending">
           <div className="stat-value">{pendingCount}</div>
-          <div className="stat-label">Pending In-Progress</div>
+          <div className="stat-label">In-Progress Tasks</div>
         </div>
         <div className="stat-card high-priority">
           <div className="stat-value">{highPriorityCount}</div>
@@ -375,8 +397,8 @@ function Tasks() {
       {/* Filters Bar */}
       <div className="task-filters-bar">
         <div className="filter-group">
-          <span className="filter-label">Category:</span>
-          {["All", "AI/ML", "Web Dev", "Documentation"].map((cat) => (
+          <span className="filter-label">Domain:</span>
+          {["All", "AI/ML", "Web Dev", "Architecture", "Cloud/DevOps"].map((cat) => (
             <button
               key={cat}
               className={`filter-chip ${selectedCategory === cat ? "active" : ""}`}
@@ -388,7 +410,7 @@ function Tasks() {
         </div>
 
         <div className="filter-group">
-          <span className="filter-label">Status:</span>
+          <span className="filter-label">Sprint Status:</span>
           {[
             { id: "all", label: "All" },
             { id: "pending", label: "In Progress" },
@@ -409,12 +431,12 @@ function Tasks() {
       {loading ? (
         <div className="loading-state">
           <div className="task-spinner"></div>
-          <p>Loading project milestone tasks from API...</p>
+          <p>Syncing engineering milestones from microservice...</p>
         </div>
       ) : filteredTasks.length === 0 ? (
         <div className="empty-state">
-          <h3>No tasks match your criteria</h3>
-          <p>Try clearing filters or add a new milestone task.</p>
+          <h3>No milestones match your filter</h3>
+          <p>Try switching domains or add a new sprint milestone.</p>
         </div>
       ) : (
         <div className="tasks-grid">
@@ -444,24 +466,24 @@ function Tasks() {
               {task.description && <p className="task-desc">{task.description}</p>}
 
               <div className="task-card-footer">
-                <span className="task-id-badge">ID: #{task.id}</span>
+                <span className="task-id-badge">TASK #{task.id}</span>
                 <span className="task-status-pill">
-                  {task.completed ? "✓ Done" : "⏳ In Progress"}
+                  {task.completed ? "✓ Delivered" : "⚡ In Sprint"}
                 </span>
                 <div className="task-actions">
                   <button
                     className="hateoas-toggle-btn"
                     onClick={() => toggleLinksInspector(task.id)}
-                    title="Inspect Richardson Level 3 HATEOAS Hypermedia Links"
+                    title="Inspect self-describing HATEOAS Hypermedia links"
                   >
-                    {expandedLinks[task.id] ? "Hide HATEOAS" : "🔗 Level 3 Links"}
+                    {expandedLinks[task.id] ? "Hide Hypermedia" : "🔗 Inspect HATEOAS"}
                   </button>
                   <button
                     className="delete-task-btn"
                     onClick={() => handleDeleteTask(task.id)}
-                    title="Delete Task (DELETE /tasks/:id)"
+                    title="Delete Milestone (DELETE /tasks/:id)"
                   >
-                    🗑️ Delete
+                    🗑️ Remove
                   </button>
                 </div>
               </div>
@@ -470,14 +492,14 @@ function Tasks() {
               {expandedLinks[task.id] && (
                 <div className="hateoas-drawer">
                   <div className="hateoas-drawer-title">
-                    <span>Richardson Maturity Level 3 — Hypermedia Controls (_links)</span>
-                    <span className="hateoas-tag">HATEOAS</span>
+                    <span>Self-Describing Hypermedia Controls (_links)</span>
+                    <span className="hateoas-tag">HATEOAS Contract</span>
                   </div>
                   <pre className="hateoas-code">
                     {JSON.stringify(task._links || {}, null, 2)}
                   </pre>
                   <div className="hateoas-drawer-note">
-                    Clients navigate state dynamically using these hypermedia URIs without hardcoded route knowledge.
+                    Decoupled REST client navigation: State transitions are discovered dynamically at runtime via hypermedia links.
                   </div>
                 </div>
               )}
@@ -491,7 +513,7 @@ function Tasks() {
         <div className="modal-backdrop" onClick={() => setShowAddModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Add Portfolio Milestone Task</h2>
+              <h2>Add Sprint Milestone</h2>
               <button className="modal-close-btn" onClick={() => setShowAddModal(false)}>
                 ✕
               </button>
@@ -501,11 +523,11 @@ function Tasks() {
               {formError && <div className="form-error-alert">{formError}</div>}
 
               <div className="form-group">
-                <label htmlFor="task-title">Task Title *</label>
+                <label htmlFor="task-title">Milestone Title *</label>
                 <input
                   id="task-title"
                   type="text"
-                  placeholder="e.g. SignBridge AI: Optimize MediaPipe Landmark Extraction"
+                  placeholder="e.g. SignBridge AI: Integrate FP16 ONNX Runtime Quantization"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   required
@@ -513,11 +535,11 @@ function Tasks() {
               </div>
 
               <div className="form-group">
-                <label htmlFor="task-desc">Description</label>
+                <label htmlFor="task-desc">Technical Objective</label>
                 <textarea
                   id="task-desc"
                   rows="3"
-                  placeholder="Details of the technical objective or milestone..."
+                  placeholder="Describe the architectural milestone or deliverable..."
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 />
@@ -525,7 +547,7 @@ function Tasks() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="task-category">Category</label>
+                  <label htmlFor="task-category">Domain</label>
                   <select
                     id="task-category"
                     value={formData.category}
@@ -533,8 +555,8 @@ function Tasks() {
                   >
                     <option value="AI/ML">AI/ML</option>
                     <option value="Web Dev">Web Dev</option>
+                    <option value="Architecture">Architecture</option>
                     <option value="Cloud/DevOps">Cloud/DevOps</option>
-                    <option value="Documentation">Documentation</option>
                   </select>
                 </div>
 
@@ -565,7 +587,7 @@ function Tasks() {
                   className="btn-primary"
                   disabled={formSubmitting}
                 >
-                  {formSubmitting ? "Creating..." : "Create Task (POST /tasks)"}
+                  {formSubmitting ? "Dispatching..." : "Commit Milestone (POST /tasks)"}
                 </button>
               </div>
             </form>
@@ -573,33 +595,33 @@ function Tasks() {
         </div>
       )}
 
-      {/* Richardson Maturity Model Info Card */}
+      {/* RESTful Architecture & Maturity Card */}
       <div className="rmm-card">
-        <h3>🏛️ Richardson Maturity Model Compliance (Assignment 1)</h3>
+        <h3>🏛️ RESTful Architecture & Hypermedia Maturity</h3>
         <p className="rmm-intro">
-          This API and interactive dashboard demonstrate compliance with all four levels of the
-          Richardson Maturity Model:
+          Designed around the Richardson Maturity Model, demonstrating progressive API capabilities
+          from resource-oriented URI design to self-describing HATEOAS discovery:
         </p>
         <div className="rmm-grid">
           <div className="rmm-level-item">
-            <div className="rmm-level-num">Level 0</div>
-            <div className="rmm-level-title">The Swamp of POX</div>
-            <div className="rmm-level-desc">Single URI, single HTTP verb used as transport tunnel (RPC style). Surpassed.</div>
-          </div>
-          <div className="rmm-level-item">
             <div className="rmm-level-num">Level 1</div>
-            <div className="rmm-level-title">Resources</div>
-            <div className="rmm-level-desc">Discrete URIs for individual & collection resources (/tasks, /tasks/:id). Satisfied.</div>
+            <div className="rmm-level-title">Uniform Resource URIs</div>
+            <div className="rmm-level-desc">Discrete addressable endpoints for collections (/tasks) and individual entities (/tasks/:id).</div>
           </div>
           <div className="rmm-level-item">
             <div className="rmm-level-num">Level 2</div>
-            <div className="rmm-level-title">HTTP Verbs & Status Codes</div>
-            <div className="rmm-level-desc">GET, POST, PUT, DELETE with 200, 201, 400, 404, 415, 500 status codes. Satisfied.</div>
+            <div className="rmm-level-title">Standard HTTP Verbs & Status</div>
+            <div className="rmm-level-desc">Strict semantics for GET, POST, PUT, DELETE paired with deterministic status codes (200, 201, 400, 415, 500).</div>
           </div>
           <div className="rmm-level-item active">
             <div className="rmm-level-num">Level 3</div>
-            <div className="rmm-level-title">HATEOAS Hypermedia</div>
-            <div className="rmm-level-desc">Embeds dynamic _links in representations guiding clients on state transitions. Satisfied!</div>
+            <div className="rmm-level-title">Hypermedia Controls (HATEOAS)</div>
+            <div className="rmm-level-desc">Embeds dynamic _links in JSON representations enabling autonomous, decoupled state transitions.</div>
+          </div>
+          <div className="rmm-level-item">
+            <div className="rmm-level-num">Resilience</div>
+            <div className="rmm-level-title">Zero-Leak Error Handling</div>
+            <div className="rmm-level-desc">Centralized error boundaries intercept unhandled exceptions and prevent raw stack traces from reaching clients.</div>
           </div>
         </div>
       </div>

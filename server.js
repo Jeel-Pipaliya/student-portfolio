@@ -10,8 +10,8 @@ const PORT = process.env.PORT || 5000;
 let tasks = [
   {
     id: 1,
-    title: 'SignBridge AI: Train Indian Sign Language Gesture Classifier',
-    description: 'Optimize MediaPipe hand landmarks and train a lightweight TensorFlow classification model.',
+    title: 'SignBridge AI: Train Real-Time ISL Gesture Recognition Model',
+    description: 'Optimize MediaPipe hand landmarks and train a lightweight TensorFlow LSTM classifier for sub-50ms inference.',
     category: 'AI/ML',
     priority: 'High',
     completed: true,
@@ -19,8 +19,8 @@ let tasks = [
   },
   {
     id: 2,
-    title: 'CreditWise: Build Flask Inference Service for Loan Approvals',
-    description: 'Create an automated pipeline for risk scoring and creditworthiness prediction.',
+    title: 'CreditWise: Architect Flask Inference Service for Automated Risk Scoring',
+    description: 'Implement automated creditworthiness evaluation pipeline using ensemble gradient boosted trees (LightGBM).',
     category: 'AI/ML',
     priority: 'High',
     completed: false,
@@ -28,8 +28,8 @@ let tasks = [
   },
   {
     id: 3,
-    title: 'Portfolio: Implement Express REST API and Middleware Pipeline',
-    description: 'Build robust CRUD endpoints, request logger, content-type checks, and error handling.',
+    title: 'Portfolio: Build Express REST Engine with Middleware Pipeline',
+    description: 'Implement centralized request logging, Content-Type negotiation, input sanitization, and structured error boundaries.',
     category: 'Web Dev',
     priority: 'Medium',
     completed: true,
@@ -37,9 +37,18 @@ let tasks = [
   },
   {
     id: 4,
-    title: 'Portfolio: Evaluate Richardson Maturity Model (A1)',
-    description: 'Analyze endpoints against Levels 0 through 3 and document HATEOAS link structures.',
-    category: 'Documentation',
+    title: 'REST Architecture: Deploy HATEOAS Dynamic Hypermedia Controls',
+    description: 'Implement self-describing RESTful hypermedia contracts (_links) enabling autonomous client-driven resource state transitions.',
+    category: 'Architecture',
+    priority: 'Medium',
+    completed: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 5,
+    title: 'DevOps: Automate Docker Containerization & GitHub CI/CD Workflows',
+    description: 'Configure automated testing pipelines and multi-stage container builds for rapid deployment.',
+    category: 'Cloud/DevOps',
     priority: 'Medium',
     completed: false,
     createdAt: new Date().toISOString()
@@ -113,7 +122,7 @@ const validateTaskId = (req, res, next) => {
 // Root API Health & Route Discovery endpoint
 app.get('/', (req, res) => {
   res.status(200).json({
-    message: 'Welcome to the Student Portfolio Project Tasks API (Practical 4 & A1)',
+    message: 'Welcome to the Student Portfolio Engineering Roadmap & Sprint API',
     version: '1.0.0',
     endpoints: {
       'GET /tasks': 'Retrieve all project tasks',
