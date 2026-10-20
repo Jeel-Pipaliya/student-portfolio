@@ -9,6 +9,8 @@ import User from './models/User.js';
 import { authMiddleware } from './middleware/auth.js';
 import { validateTaskInput, validateAuthInput } from './middleware/validate.js';
 import { taskCache } from './cache.js';
+import { taskEvents } from './events.js';
+import './listeners.js';
 
 
 const app = express();
@@ -515,7 +517,19 @@ app.post('/tasks', authMiddleware, validateTaskInput, async (req, res, next) => 
       const savedTask = await taskDoc.save();
       // Practical 9: Invalidate cached all_tasks on write
       taskCache.invalidateTaskCache();
-      return res.status(201).json(withLinks(savedTask, req));
+
+      // Practical 10: Asynchronous Processing with Event-Driven Architecture
+      const responseTimestamp = new Date().toISOString();
+      console.log(`[API] 🚀 Response sent to client at ${responseTimestamp} (HTTP 201 Created) for task: "${savedTask.title}"`);
+      res.status(201).json(withLinks(savedTask, req));
+
+      // Emit event asynchronously AFTER response is sent
+      taskEvents.emit('task-created', {
+        ...(savedTask.toObject ? savedTask.toObject() : savedTask),
+        assignedTo: req.user?.email || 'jeel@charusat.edu.in',
+        responseSentAt: responseTimestamp
+      });
+      return;
     }
 
     const nextId = memoryTasks.length > 0 ? Math.max(...memoryTasks.map((t) => Number(t.id) || 0)) + 1 : 1;
@@ -532,7 +546,18 @@ app.post('/tasks', authMiddleware, validateTaskInput, async (req, res, next) => 
     memoryTasks.push(newTask);
     // Practical 9: Invalidate cached all_tasks on write
     taskCache.invalidateTaskCache();
-    return res.status(201).json(withLinks(newTask, req));
+
+    // Practical 10: Asynchronous Processing with Event-Driven Architecture
+    const responseTimestamp = new Date().toISOString();
+    console.log(`[API] 🚀 Response sent to client at ${responseTimestamp} (HTTP 201 Created) for task: "${newTask.title}"`);
+    res.status(201).json(withLinks(newTask, req));
+
+    taskEvents.emit('task-created', {
+      ...newTask,
+      assignedTo: req.user?.email || 'jeel@charusat.edu.in',
+      responseSentAt: responseTimestamp
+    });
+    return;
   } catch (err) {
     if (err.name === 'ValidationError') {
       const messages = Object.values(err.errors).map((e) => e.message);
@@ -628,10 +653,23 @@ app.delete('/tasks/:id', authMiddleware, async (req, res, next) => {
 
       // Practical 9: Invalidate both all_tasks and single task cache
       taskCache.invalidateTaskCache(id);
-      return res.status(200).json({
+
+      // Practical 10: Asynchronous Processing with Event-Driven Architecture (Supplementary 1)
+      const responseTimestamp = new Date().toISOString();
+      console.log(`[API] 🚀 Response sent to client at ${responseTimestamp} (HTTP 200 OK) for deleted task ID: ${id}`);
+      res.status(200).json({
         message: `Task ${id} deleted successfully from MongoDB`,
         deletedTask: withLinks(deletedTask, req)
       });
+
+      // Emit event asynchronously AFTER response is sent
+      taskEvents.emit('task-deleted', {
+        id,
+        title: deletedTask.title || 'Untitled Task',
+        deletedBy: req.user?.email || 'jeel@charusat.edu.in',
+        responseSentAt: responseTimestamp
+      });
+      return;
     }
 
     const index = memoryTasks.findIndex((t) => t.id == id || t._id === id);
@@ -645,10 +683,22 @@ app.delete('/tasks/:id', authMiddleware, async (req, res, next) => {
     const [deletedTask] = memoryTasks.splice(index, 1);
     // Practical 9: Invalidate both all_tasks and single task cache
     taskCache.invalidateTaskCache(id);
-    return res.status(200).json({
+
+    // Practical 10: Asynchronous Processing with Event-Driven Architecture (Supplementary 1)
+    const responseTimestamp = new Date().toISOString();
+    console.log(`[API] 🚀 Response sent to client at ${responseTimestamp} (HTTP 200 OK) for deleted task ID: ${id}`);
+    res.status(200).json({
       message: `Task ${id} deleted successfully`,
       deletedTask: withLinks(deletedTask, req)
     });
+
+    taskEvents.emit('task-deleted', {
+      id,
+      title: deletedTask.title || 'Untitled Task',
+      deletedBy: req.user?.email || 'jeel@charusat.edu.in',
+      responseSentAt: responseTimestamp
+    });
+    return;
   } catch (err) {
     next(err);
   }
@@ -688,6 +738,46 @@ app.post('/cache/flush', (req, res) => {
     message: 'In-memory cache flushed successfully. Subsequent reads will query database.',
     keysRemaining: taskCache.cache.keys().length
   });
+});
+
+// ============================================================================
+// Practical 10: Event-Driven Background Processing & Telemetry Endpoints
+// ============================================================================
+
+// GET /events/stats - Real-time EventEmitter telemetry, listeners count, and statistics
+app.get('/events/stats', (req, res) => {
+  return res.status(200).json(taskEvents.getTelemetry());
+});
+
+// GET /events/logs - Retrieve recent background worker event execution logs
+app.get('/events/logs', (req, res) => {
+  return res.status(200).json({
+    totalLogs: taskEvents.recentLogs.length,
+    logs: taskEvents.recentLogs
+  });
+});
+
+// POST /events/simulate-error - Supplementary Problem 2: Trigger error event to test error listener
+app.post('/events/simulate-error', (req, res) => {
+  const { message } = req.body || {};
+  const errorMessage = message || 'Simulated background worker failure for testing EventEmitter error boundary';
+
+  // Emitting 'error' event to verify error listener prevents server crash
+  taskEvents.emit('error', new Error(errorMessage), {
+    context: 'POST /events/simulate-error test route',
+    triggeredAt: new Date().toISOString()
+  });
+
+  return res.status(200).json({
+    message: 'Error event successfully emitted to taskEvents error listener. Server remains running.',
+    testResult: 'Safe error boundary caught exception without process termination'
+  });
+});
+
+// POST /events/clear-logs - Clear in-memory event activity log
+app.post('/events/clear-logs', (req, res) => {
+  taskEvents.clearLogs();
+  return res.status(200).json({ message: 'Event logs cleared successfully.' });
 });
 
 // Centralized 404 Route Handler

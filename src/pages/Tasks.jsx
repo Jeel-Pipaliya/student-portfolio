@@ -275,6 +275,39 @@ function Tasks() {
     }
   };
 
+  // Practical 10: Event-Driven Background Processing State
+  const [showEventFeed, setShowEventFeed] = useState(false);
+  const [eventStats, setEventStats] = useState(null);
+  const [eventLoading, setEventLoading] = useState(false);
+
+  const fetchEventTelemetry = async () => {
+    setEventLoading(true);
+    try {
+      const res = await fetch("http://localhost:5000/events/stats");
+      const data = await res.json();
+      setEventStats(data);
+    } catch (e) {
+      console.warn("Event telemetry error", e);
+    } finally {
+      setEventLoading(false);
+    }
+  };
+
+  const handleSimulateEventError = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/events/simulate-error", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "Simulated background notification dispatch failure (testing error listener)" })
+      });
+      const data = await res.json();
+      addToast(data.message, "warning", "Event Error Boundary Verified");
+      fetchEventTelemetry();
+    } catch {
+      addToast("Failed to trigger event error test", "error", "Simulation Error");
+    }
+  };
+
 
   // Supplementary 2: Listen for 401 unauthorized / expired token events
   useEffect(() => {
@@ -609,6 +642,9 @@ function Tasks() {
           <span className="badge-pill badge-caching" style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0' }}>
             ⚡ In-Memory node-cache: 60s TTL
           </span>
+          <span className="badge-pill badge-events" style={{ background: '#fdf4ff', color: '#86198f', border: '1px solid #f0abfc' }}>
+            📡 Async EventEmitter Pipeline
+          </span>
         </div>
         <h1 className="tasks-title">Engineering Roadmap &amp; Sprint Hub</h1>
         <p className="tasks-subtitle">
@@ -711,6 +747,17 @@ function Tasks() {
             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
             🧹 Invalidate Cache
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={() => {
+              fetchEventTelemetry();
+              setShowEventFeed(true);
+            }}
+            title="Practical 10: View live asynchronous EventEmitter background activity"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            📡 Event Activity Feed
           </button>
           <button
             className="btn-open-analytics"
@@ -1024,6 +1071,146 @@ function Tasks() {
         <Suspense fallback={<PageLoader message="Loading Sprint Analytics Component Chunk..." isComponent={true} />}>
           <MilestoneAnalytics tasks={tasks} onClose={() => setShowAnalytics(false)} />
         </Suspense>
+      )}
+
+      {/* Practical 10: Event-Driven Background Worker Telemetry Modal */}
+      {showEventFeed && (
+        <div className="modal-overlay" onClick={() => setShowEventFeed(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '720px', width: '92%' }}>
+            <div className="modal-header" style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '12px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '24px' }}>📡</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '18px', color: '#0f172a' }}>
+                    Asynchronous Event-Driven Pipeline (Practical 10)
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '12.5px', color: '#64748b' }}>
+                    Node.js Native EventEmitter • Decoupled Non-Blocking Background Workers
+                  </p>
+                </div>
+              </div>
+              <button
+                className="btn-icon"
+                onClick={() => setShowEventFeed(false)}
+                style={{ fontSize: '20px', border: 'none', background: 'transparent', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Metrics Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '16px' }}>
+              <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Active Listeners</div>
+                <div style={{ fontSize: '18px', fontWeight: '700', color: '#0284c7' }}>
+                  {eventStats?.listenerCounts ? (eventStats.listenerCounts['task-created'] + eventStats.listenerCounts['task-deleted'] + eventStats.listenerCounts['error']) : 3}
+                </div>
+              </div>
+              <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>task-created</div>
+                <div style={{ fontSize: '18px', fontWeight: '700', color: '#16a34a' }}>
+                  {eventStats?.stats?.emitted?.['task-created'] ?? 0}
+                </div>
+              </div>
+              <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>task-deleted</div>
+                <div style={{ fontSize: '18px', fontWeight: '700', color: '#ea580c' }}>
+                  {eventStats?.stats?.emitted?.['task-deleted'] ?? 0}
+                </div>
+              </div>
+              <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Handled Errors</div>
+                <div style={{ fontSize: '18px', fontWeight: '700', color: '#dc2626' }}>
+                  {eventStats?.stats?.errorsCaught ?? 0}
+                </div>
+              </div>
+            </div>
+
+            {/* Event Activity Log Table */}
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontSize: '13px', fontWeight: '700', color: '#334155' }}>
+                  Recent Background Worker Execution Log
+                </span>
+                <span style={{ fontSize: '11.5px', color: '#64748b' }}>
+                  Student: 24AIML051 _Jeel_Pipaliya
+                </span>
+              </div>
+              <div style={{ maxHeight: '220px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
+                {eventStats?.recentActivity && eventStats.recentActivity.length > 0 ? (
+                  <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1', textAlign: 'left' }}>
+                        <th style={{ padding: '6px 10px' }}>Event</th>
+                        <th style={{ padding: '6px 10px' }}>Status</th>
+                        <th style={{ padding: '6px 10px' }}>Summary</th>
+                        <th style={{ padding: '6px 10px' }}>Timestamp</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {eventStats.recentActivity.map((log) => (
+                        <tr key={log.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '6px 10px', fontWeight: '600', color: log.event === 'error' ? '#dc2626' : (log.event === 'task-deleted' ? '#ea580c' : '#16a34a') }}>
+                            {log.event}
+                          </td>
+                          <td style={{ padding: '6px 10px' }}>
+                            <span style={{
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontSize: '10.5px',
+                              fontWeight: '600',
+                              background: log.status === 'COMPLETED' ? '#dcfce7' : (log.status === 'ERROR_HANDLED' ? '#fee2e2' : '#fef9c3'),
+                              color: log.status === 'COMPLETED' ? '#15803d' : (log.status === 'ERROR_HANDLED' ? '#b91c1c' : '#854d0e')
+                            }}>
+                              {log.status}
+                            </span>
+                          </td>
+                          <td style={{ padding: '6px 10px', color: '#334155' }}>{log.payloadSummary}</td>
+                          <td style={{ padding: '6px 10px', color: '#64748b', fontSize: '11px' }}>
+                            {log.timestamp.split('T')[1].slice(0, 8)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
+                    No events emitted yet. Create or delete a milestone to see background processing in action!
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={handleSimulateEventError}
+                style={{ fontSize: '12px', padding: '6px 12px', color: '#b91c1c' }}
+                title="Supplementary 2: Trigger error event to verify error boundary without server crash"
+              >
+                ⚠️ Test Error Listener
+              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  className="btn btn-secondary"
+                  onClick={fetchEventTelemetry}
+                  disabled={eventLoading}
+                  style={{ fontSize: '12px', padding: '6px 12px' }}
+                >
+                  {eventLoading ? 'Refreshing...' : '🔄 Refresh Log'}
+                </button>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => setShowEventFeed(false)}
+                  style={{ fontSize: '12px', padding: '6px 14px' }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
