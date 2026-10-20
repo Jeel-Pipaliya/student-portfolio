@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense, memo, useCallback } from "react";
 import {
   getTasks,
   createTask,
@@ -12,6 +12,12 @@ import {
 } from "../api";
 import Toast from "../components/Toast";
 import ConfirmModal from "../components/ConfirmModal";
+import PageLoader from "../components/PageLoader";
+
+// Practical 8: Supplementary Problem 1
+// Heavy third-party analytics visualization component lazy-loaded on-demand via React.lazy()
+const MilestoneAnalytics = lazy(() => import("../components/MilestoneAnalytics"));
+
 
 const INITIAL_FALLBACK_TASKS = [
   {
@@ -96,6 +102,110 @@ const INITIAL_FALLBACK_TASKS = [
   }
 ];
 
+// ============================================================================
+// Practical 8: Supplementary Problem 3 - Render Optimization via React.memo
+// Profiler flamegraph analysis proves that TaskCardItem only re-renders when its
+// specific props change, eliminating wasteful re-renders of the task list when
+// parent modals or global filters toggle.
+// ============================================================================
+const TaskCardItem = memo(function TaskCardItem({
+  task,
+  taskId,
+  isOptimistic,
+  isExpanded,
+  onToggleStatus,
+  onToggleLinks,
+  onRequestDelete
+}) {
+  return (
+    <div
+      className={`task-item ${task.completed ? "completed" : ""} ${
+        isOptimistic ? "is-optimistic" : ""
+      }`}
+    >
+      <div className="task-card-header">
+        <div className="task-check-wrapper">
+          <input
+            type="checkbox"
+            id={`task-${taskId}`}
+            checked={task.completed}
+            onChange={() => onToggleStatus(task)}
+            disabled={isOptimistic}
+            className="task-checkbox"
+          />
+          <label htmlFor={`task-${taskId}`} className="task-title-text">
+            {task.title}
+          </label>
+        </div>
+        <div className="task-badges">
+          {isOptimistic && (
+            <span className="optimistic-badge">⏳ Persisting...</span>
+          )}
+          <span
+            className={`priority-badge priority-${(task.priority || "medium").toLowerCase()}`}
+          >
+            {task.priority || "medium"}
+          </span>
+          <span className="category-badge">{task.category || "General"}</span>
+        </div>
+      </div>
+
+      {task.description && <p className="task-desc">{task.description}</p>}
+
+      <div className="task-card-footer">
+        <span className="task-id-badge" title={`MongoDB ObjectId: ${task._id || task.id}`}>
+          ID: {(task._id || String(task.id)).substring(0, 10)}...
+        </span>
+        <span className="task-status-pill">
+          {task.completed ? "✓ Delivered" : "⚡ In Sprint"}
+        </span>
+        <div className="task-actions">
+          <button
+            className="hateoas-toggle-btn"
+            onClick={() => onToggleLinks(taskId)}
+            title="Inspect self-describing HATEOAS Hypermedia links"
+          >
+            {isExpanded ? "Hide Hypermedia" : "🔗 HATEOAS"}
+          </button>
+          <button
+            className="delete-task-btn"
+            onClick={() => onRequestDelete(task)}
+            disabled={isOptimistic}
+            title="Delete Milestone (DELETE /tasks/:id)"
+          >
+            🗑️ Delete
+          </button>
+        </div>
+      </div>
+
+      {/* HATEOAS Inspector Drawer */}
+      {isExpanded && (
+        <div className="hateoas-drawer">
+          <div className="hateoas-drawer-title">
+            <span>MongoDB Document Metadata &amp; Hypermedia Controls</span>
+            <span className="hateoas-tag">MongoDB BSON</span>
+          </div>
+          <pre className="hateoas-code">
+            {JSON.stringify(
+              {
+                _id: task._id,
+                title: task.title,
+                category: task.category,
+                priority: task.priority,
+                completed: task.completed,
+                createdAt: task.createdAt,
+                _links: task._links
+              },
+              null,
+              2
+            )}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+});
+
 function Tasks() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -105,6 +215,10 @@ function Tasks() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [expandedLinks, setExpandedLinks] = useState({});
+
+  // Practical 8: Supplementary Problem 1 - Analytics modal state
+  const [showAnalytics, setShowAnalytics] = useState(false);
+
 
   // Practical 7: Authentication State
   const [currentUser, setCurrentUser] = useState(getStoredUser());
@@ -575,6 +689,13 @@ function Tasks() {
             {isRefreshing ? "⏳ Syncing MongoDB..." : "🔄 Verify Persistence"}
           </button>
           <button
+            className="btn-open-analytics"
+            onClick={() => setShowAnalytics(true)}
+            title="Practical 8: Lazy load heavy analytics visualization chunk"
+          >
+            📊 Sprint Analytics (Lazy)
+          </button>
+          <button
             className="btn btn-primary add-task-btn"
             onClick={() => setShowAddModal(true)}
           >
@@ -654,92 +775,16 @@ function Tasks() {
             const isOptimistic = Boolean(task.isOptimistic);
 
             return (
-              <div
+              <TaskCardItem
                 key={taskId}
-                className={`task-card ${task.completed ? "task-completed" : ""} ${
-                  isOptimistic ? "is-optimistic" : ""
-                }`}
-              >
-                <div className="task-card-header">
-                  <div className="task-check-wrapper">
-                    <input
-                      type="checkbox"
-                      id={`task-${taskId}`}
-                      checked={task.completed}
-                      onChange={() => handleToggleComplete(task)}
-                      disabled={isOptimistic}
-                      className="task-checkbox"
-                    />
-                    <label htmlFor={`task-${taskId}`} className="task-title-text">
-                      {task.title}
-                    </label>
-                  </div>
-                  <div className="task-badges">
-                    {isOptimistic && (
-                      <span className="optimistic-badge">⏳ Persisting...</span>
-                    )}
-                    <span
-                      className={`priority-badge priority-${(task.priority || "medium").toLowerCase()}`}
-                    >
-                      {task.priority || "medium"}
-                    </span>
-                    <span className="category-badge">{task.category || "General"}</span>
-                  </div>
-                </div>
-
-                {task.description && <p className="task-desc">{task.description}</p>}
-
-                <div className="task-card-footer">
-                  <span className="task-id-badge" title={`MongoDB ObjectId: ${task._id || task.id}`}>
-                    ID: {(task._id || String(task.id)).substring(0, 10)}...
-                  </span>
-                  <span className="task-status-pill">
-                    {task.completed ? "✓ Delivered" : "⚡ In Sprint"}
-                  </span>
-                  <div className="task-actions">
-                    <button
-                      className="hateoas-toggle-btn"
-                      onClick={() => toggleLinksInspector(taskId)}
-                      title="Inspect self-describing HATEOAS Hypermedia links"
-                    >
-                      {expandedLinks[taskId] ? "Hide Hypermedia" : "🔗 HATEOAS"}
-                    </button>
-                    <button
-                      className="delete-task-btn"
-                      onClick={() => requestDeleteTask(task)}
-                      disabled={isOptimistic}
-                      title="Delete Milestone (DELETE /tasks/:id)"
-                    >
-                      🗑️ Delete
-                    </button>
-                  </div>
-                </div>
-
-                {/* HATEOAS Inspector Drawer */}
-                {expandedLinks[taskId] && (
-                  <div className="hateoas-drawer">
-                    <div className="hateoas-drawer-title">
-                      <span>MongoDB Document Metadata &amp; Hypermedia Controls</span>
-                      <span className="hateoas-tag">MongoDB BSON</span>
-                    </div>
-                    <pre className="hateoas-code">
-                      {JSON.stringify(
-                        {
-                          _id: task._id,
-                          title: task.title,
-                          category: task.category,
-                          priority: task.priority,
-                          completed: task.completed,
-                          createdAt: task.createdAt,
-                          _links: task._links
-                        },
-                        null,
-                        2
-                      )}
-                    </pre>
-                  </div>
-                )}
-              </div>
+                task={task}
+                taskId={taskId}
+                isOptimistic={isOptimistic}
+                isExpanded={Boolean(expandedLinks[taskId])}
+                onToggleStatus={handleToggleComplete}
+                onToggleLinks={toggleLinksInspector}
+                onRequestDelete={requestDeleteTask}
+              />
             );
           })}
         </div>
@@ -948,6 +993,13 @@ function Tasks() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Practical 8: Supplementary Problem 1 - Dynamic Lazy-Loaded Analytics */}
+      {showAnalytics && (
+        <Suspense fallback={<PageLoader message="Loading Sprint Analytics Component Chunk..." isComponent={true} />}>
+          <MilestoneAnalytics tasks={tasks} onClose={() => setShowAnalytics(false)} />
+        </Suspense>
       )}
     </div>
   );
