@@ -263,6 +263,19 @@ function Tasks() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
+  // Practical 9: In-Memory Cache Flush
+  const handleFlushCache = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/cache/flush", { method: "POST" });
+      const data = await res.json();
+      addToast(data.message, "info", "Cache Invalidation Triggered");
+      fetchTasks(true);
+    } catch {
+      addToast("Failed to flush in-memory cache", "error", "Cache Error");
+    }
+  };
+
+
   // Supplementary 2: Listen for 401 unauthorized / expired token events
   useEffect(() => {
     const handleUnauthorized = (e) => {
@@ -593,6 +606,9 @@ function Tasks() {
           <span className="badge-pill badge-hateoas">
             ⚡ Input Validation Pipeline
           </span>
+          <span className="badge-pill badge-caching" style={{ background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0' }}>
+            ⚡ In-Memory node-cache: 60s TTL
+          </span>
         </div>
         <h1 className="tasks-title">Engineering Roadmap &amp; Sprint Hub</h1>
         <p className="tasks-subtitle">
@@ -687,6 +703,14 @@ function Tasks() {
             disabled={isRefreshing}
           >
             {isRefreshing ? "⏳ Syncing MongoDB..." : "🔄 Verify Persistence"}
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={handleFlushCache}
+            title="Practical 9: Flush in-memory cache to trigger cache miss on next read"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            🧹 Invalidate Cache
           </button>
           <button
             className="btn-open-analytics"

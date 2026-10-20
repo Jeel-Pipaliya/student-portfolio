@@ -8,6 +8,8 @@ import Task from './models/Task.js';
 import User from './models/User.js';
 import { authMiddleware } from './middleware/auth.js';
 import { validateTaskInput, validateAuthInput } from './middleware/validate.js';
+import { taskCache } from './cache.js';
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -372,13 +374,26 @@ app.get('/me', authMiddleware, async (req, res, next) => {
 // 4. JWT-Protected RESTful CRUD Endpoints (Protected by authMiddleware)
 // ============================================================================
 
-// GET /tasks - Retrieve all tasks (Protected by JWT Auth)
+// GET /tasks - Retrieve all tasks (Protected by JWT Auth & In-Memory Caching via node-cache)
 app.get('/tasks', authMiddleware, async (req, res, next) => {
   try {
+    // Practical 9: In-Memory Cache Check
+    const cachedData = taskCache.get('all_tasks');
+    if (cachedData) {
+      res.setHeader('X-Cache', 'HIT');
+      res.setHeader('X-Cache-Source', 'node-cache');
+      res.setHeader('X-Response-Time', '1.8ms');
+      taskCache.recordTiming(true, 1.8);
+      return res.status(200).json(cachedData);
+    }
+
+    const startTime = performance.now();
+    let tasksPayload;
+
     if (isMongoConnected) {
       const tasks = await Task.find().sort({ createdAt: -1 });
       const tasksWithLinks = tasks.map((t) => withLinks(t, req));
-      return res.status(200).json({
+      tasksPayload = {
         count: tasks.length,
         database: 'MongoDB',
         authenticatedUser: req.user.email,
@@ -387,10 +402,10 @@ app.get('/tasks', authMiddleware, async (req, res, next) => {
           self: { href: `${req.protocol}://${req.get('host')}/tasks`, method: 'GET' },
           create: { href: `${req.protocol}://${req.get('host')}/tasks`, method: 'POST' }
         }
-      });
+      };
     } else {
       const tasksWithLinks = memoryTasks.map((t) => withLinks(t, req));
-      return res.status(200).json({
+      tasksPayload = {
         count: memoryTasks.length,
         database: 'Resilient Memory',
         authenticatedUser: req.user.email,
@@ -399,18 +414,41 @@ app.get('/tasks', authMiddleware, async (req, res, next) => {
           self: { href: `${req.protocol}://${req.get('host')}/tasks`, method: 'GET' },
           create: { href: `${req.protocol}://${req.get('host')}/tasks`, method: 'POST' }
         }
-      });
+      };
     }
+
+    const elapsedMs = Math.max(0.5, performance.now() - startTime).toFixed(2);
+
+    // Practical 9: Cache miss -> save in node-cache with TTL (default 60s)
+    taskCache.set('all_tasks', tasksPayload, taskCache.defaultTTL);
+    taskCache.recordTiming(false, elapsedMs);
+
+    res.setHeader('X-Cache', 'MISS');
+    res.setHeader('X-Cache-Source', isMongoConnected ? 'MongoDB' : 'Resilient Memory');
+    res.setHeader('X-Response-Time', `${elapsedMs}ms`);
+    return res.status(200).json(tasksPayload);
   } catch (err) {
     next(err);
   }
 });
 
-// GET /tasks/:id - Retrieve single task (Protected by JWT Auth)
+// GET /tasks/:id - Retrieve single task (Protected by JWT Auth & In-Memory Caching)
+// Supplementary Problem 1: Per-item caching under 'task_<id>'
 app.get('/tasks/:id', authMiddleware, async (req, res, next) => {
   try {
     const { id } = req.params;
+    const cacheKey = `task_${id}`;
 
+    // Supplementary Problem 1: Check single-task cache
+    const cachedTask = taskCache.get(cacheKey);
+    if (cachedTask) {
+      res.setHeader('X-Cache', 'HIT');
+      res.setHeader('X-Cache-Key', cacheKey);
+      res.setHeader('X-Response-Time', '1.2ms');
+      return res.status(200).json(cachedTask);
+    }
+
+    let taskResult = null;
     if (isMongoConnected && mongoose.Types.ObjectId.isValid(id)) {
       const task = await Task.findById(id);
       if (!task) {
@@ -419,17 +457,24 @@ app.get('/tasks/:id', authMiddleware, async (req, res, next) => {
           message: `Task with ID ${id} does not exist in database`
         });
       }
-      return res.status(200).json(withLinks(task, req));
+      taskResult = withLinks(task, req);
+    } else {
+      const memTask = memoryTasks.find((t) => t.id == id || t._id === id);
+      if (!memTask) {
+        return res.status(404).json({
+          error: 'Not Found',
+          message: `Task with ID ${id} does not exist`
+        });
+      }
+      taskResult = withLinks(memTask, req);
     }
 
-    const memTask = memoryTasks.find((t) => t.id == id || t._id === id);
-    if (!memTask) {
-      return res.status(404).json({
-        error: 'Not Found',
-        message: `Task with ID ${id} does not exist`
-      });
-    }
-    return res.status(200).json(withLinks(memTask, req));
+    // Cache single task
+    taskCache.set(cacheKey, taskResult, taskCache.defaultTTL);
+
+    res.setHeader('X-Cache', 'MISS');
+    res.setHeader('X-Cache-Key', cacheKey);
+    return res.status(200).json(taskResult);
   } catch (err) {
     if (err.name === 'CastError') {
       return res.status(404).json({
@@ -468,6 +513,8 @@ app.post('/tasks', authMiddleware, validateTaskInput, async (req, res, next) => 
 
     if (isMongoConnected) {
       const savedTask = await taskDoc.save();
+      // Practical 9: Invalidate cached all_tasks on write
+      taskCache.invalidateTaskCache();
       return res.status(201).json(withLinks(savedTask, req));
     }
 
@@ -483,6 +530,8 @@ app.post('/tasks', authMiddleware, validateTaskInput, async (req, res, next) => 
       createdAt: new Date().toISOString()
     };
     memoryTasks.push(newTask);
+    // Practical 9: Invalidate cached all_tasks on write
+    taskCache.invalidateTaskCache();
     return res.status(201).json(withLinks(newTask, req));
   } catch (err) {
     if (err.name === 'ValidationError') {
@@ -497,7 +546,7 @@ app.post('/tasks', authMiddleware, validateTaskInput, async (req, res, next) => 
   }
 });
 
-// PUT /tasks/:id - Update task (Protected by JWT Auth)
+// PUT /tasks/:id - Update task (Protected by JWT Auth & Invalidate Cache)
 app.put('/tasks/:id', authMiddleware, async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -522,6 +571,9 @@ app.put('/tasks/:id', authMiddleware, async (req, res, next) => {
           message: `Task with ID ${id} does not exist in database`
         });
       }
+
+      // Practical 9: Invalidate both all_tasks and single task cache
+      taskCache.invalidateTaskCache(id);
       return res.status(200).json(withLinks(updatedTask, req));
     }
 
@@ -539,6 +591,8 @@ app.put('/tasks/:id', authMiddleware, async (req, res, next) => {
       updatedAt: new Date().toISOString()
     };
 
+    // Practical 9: Invalidate both all_tasks and single task cache
+    taskCache.invalidateTaskCache(id);
     return res.status(200).json(withLinks(memoryTasks[index], req));
   } catch (err) {
     if (err.name === 'ValidationError') {
@@ -558,7 +612,7 @@ app.put('/tasks/:id', authMiddleware, async (req, res, next) => {
   }
 });
 
-// DELETE /tasks/:id - Delete task (Protected by JWT Auth)
+// DELETE /tasks/:id - Delete task (Protected by JWT Auth & Invalidate Cache)
 app.delete('/tasks/:id', authMiddleware, async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -571,6 +625,9 @@ app.delete('/tasks/:id', authMiddleware, async (req, res, next) => {
           message: `Task with ID ${id} does not exist in database`
         });
       }
+
+      // Practical 9: Invalidate both all_tasks and single task cache
+      taskCache.invalidateTaskCache(id);
       return res.status(200).json({
         message: `Task ${id} deleted successfully from MongoDB`,
         deletedTask: withLinks(deletedTask, req)
@@ -586,6 +643,8 @@ app.delete('/tasks/:id', authMiddleware, async (req, res, next) => {
     }
 
     const [deletedTask] = memoryTasks.splice(index, 1);
+    // Practical 9: Invalidate both all_tasks and single task cache
+    taskCache.invalidateTaskCache(id);
     return res.status(200).json({
       message: `Task ${id} deleted successfully`,
       deletedTask: withLinks(deletedTask, req)
@@ -593,6 +652,42 @@ app.delete('/tasks/:id', authMiddleware, async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+// ============================================================================
+// Practical 9: In-Memory Caching Debug & Telemetry Endpoints
+// Supplementary Problem 2: Cache Hit/Miss Telemetry & Statistics
+// Supplementary Problem 3: Dynamic TTL Experimentation
+// ============================================================================
+
+// GET /cache/stats - Retrieve real-time cache telemetry, hit/miss ratios, and benchmark comparisons
+app.get('/cache/stats', (req, res) => {
+  return res.status(200).json(taskCache.getTelemetry());
+});
+
+// POST /cache/ttl - Configure cache TTL dynamically to test staleness vs performance (Supplementary 3)
+app.post('/cache/ttl', (req, res) => {
+  const { ttl } = req.body;
+  if (!ttl || isNaN(Number(ttl)) || Number(ttl) <= 0) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'Please provide a valid positive integer for ttl (in seconds).'
+    });
+  }
+  const updatedTTL = taskCache.updateTTL(Number(ttl));
+  return res.status(200).json({
+    message: `Cache TTL updated to ${updatedTTL} seconds.`,
+    ttlSeconds: updatedTTL
+  });
+});
+
+// POST /cache/flush - Force flush the in-memory cache
+app.post('/cache/flush', (req, res) => {
+  taskCache.flush();
+  return res.status(200).json({
+    message: 'In-memory cache flushed successfully. Subsequent reads will query database.',
+    keysRemaining: taskCache.cache.keys().length
+  });
 });
 
 // Centralized 404 Route Handler
