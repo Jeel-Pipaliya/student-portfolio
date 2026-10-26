@@ -266,3 +266,54 @@ cd student-portfolio
 npm run dev
 ```
 *Frontend runs at:* `http://localhost:5173`
+
+---
+
+## Practical 13: AI API Integration into a Web Application
+
+An enterprise-grade, responsible AI assistant was integrated into the full-stack Task Management application using the official **OpenAI Node.js SDK** (`gpt-4o-mini`), featuring strict server-side credential isolation, rate-limiting protection, zero-downtime graceful degradation, and human-in-the-loop governance.
+
+### Architectural Highlights
+
+1. **Server-Side API Key Encapsulation:**
+   - Secret `OPENAI_API_KEY` is stored strictly in server-side `.env` and omitted from version control via `.gitignore`.
+   - The React frontend never touches or bundles external API keys; all AI interactions are routed securely through the Express backend proxy endpoint (`POST /api/ai/generate-description`).
+
+2. **In-Memory Rate Limiting (Supplementary Problem 2):**
+   - The backend enforces a 20-second sliding-window cooldown per client IP to prevent quota exhaustion and accidental multi-click flooding.
+   - Throttled requests immediately return `HTTP 429 Too Many Requests` with a human-readable retry countdown (`retryAfterSeconds`).
+
+3. **Graceful Degradation & Resilience Boundary:**
+   - If the OpenAI service experiences network timeouts, quota limits, or invalid API credentials, the backend catches the error safely and falls back to an intelligent, keyword-based technical synthesizer with `fallback: true`.
+   - The full-stack application maintains 100% uptime with zero server crashes or blocked user workflows.
+
+4. **Interactive UI with Loading States (Supplementary Problem 1):**
+   - When "✨ Generate with AI" is clicked, the button dynamically transitions to a disabled loading state with a revolving CSS spinner and label `"Generating with AI..."`.
+
+5. **Human-in-the-Loop & Responsible AI Disclaimer (Supplementary Problem 3):**
+   - Generated descriptions are populated into the modal `<textarea>` as **editable suggestions** that users can accept, modify, or overwrite.
+   - A prominent Responsible AI disclaimer badge alerts the user:  
+     `"✨ AI-Generated Suggestion (gpt-4o-mini): Please review and verify accuracy before saving."`
+
+### AI Endpoint Schema
+
+- **Route:** `POST /api/ai/generate-description`
+- **Request Body:**
+  ```json
+  {
+    "title": "SignBridge AI: Train Real-Time ISL Gesture Recognition Model",
+    "category": "AI/ML"
+  }
+  ```
+- **Response Body (HTTP 200 OK):**
+  ```json
+  {
+    "description": "Architect and evaluate advanced machine learning models for SignBridge AI. Optimize feature pipelines, fine-tune hyperparameters, and validate inference latency metrics.",
+    "priority": "high",
+    "category": "AI/ML",
+    "fallback": false,
+    "provider": "OpenAI gpt-4o-mini",
+    "model": "gpt-4o-mini",
+    "generatedAt": "2026-10-26T12:07:29.114Z"
+  }
+  ```

@@ -8,7 +8,8 @@ import {
   registerUser,
   logoutUser,
   getStoredUser,
-  getStoredToken
+  getStoredToken,
+  generateTaskDescription
 } from "../api";
 import Toast from "../components/Toast";
 import ConfirmModal from "../components/ConfirmModal";
@@ -252,6 +253,69 @@ function Tasks() {
   });
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+
+  // Practical 13: AI Assistant States (Supplementary Problem 1 & 3)
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [aiGenerated, setAiGenerated] = useState(false);
+  const [aiDisclaimer, setAiDisclaimer] = useState("");
+
+  // Practical 13: AI Generate Description Handler
+  const handleAIGenerateDescription = async () => {
+    if (!formData.title || !formData.title.trim()) {
+      setFormError("Please enter a Milestone Title before generating an AI description.");
+      addToast("Please enter a title first to guide the AI assistant.", "warning", "Title Required");
+      return;
+    }
+
+    setFormError("");
+    setIsGeneratingAI(true);
+    setAiDisclaimer("");
+
+    try {
+      const result = await generateTaskDescription({
+        title: formData.title,
+        category: formData.category
+      });
+
+      if (result && result.description) {
+        setFormData((prev) => ({
+          ...prev,
+          description: result.description,
+          priority: result.priority || prev.priority,
+          category: result.category || prev.category
+        }));
+        setAiGenerated(true);
+        setAiDisclaimer(
+          result.fallback
+            ? "⚠️ AI Resilient Fallback: Offline rule-based description generated. Edit as needed before saving."
+            : "✨ AI-Generated Suggestion (gpt-4o-mini): Please review and verify accuracy before saving."
+        );
+        addToast(
+          result.fallback
+            ? "Generated resilient description based on milestone keywords."
+            : "AI description and suggested priority generated successfully!",
+          "success",
+          result.fallback ? "Resilient Generator Active" : "AI Description Generated"
+        );
+      }
+    } catch (err) {
+      if (err.status === 429) {
+        addToast(
+          err.message || "AI rate limit reached. Please wait a few seconds before retrying.",
+          "warning",
+          "Rate Limit (429)"
+        );
+      } else {
+        addToast(
+          "Could not contact AI service. You can still type the description manually.",
+          "error",
+          "AI Assistant Unavailable"
+        );
+      }
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
 
   // Toast Helper
   const addToast = (message, type = "success", title = null, duration = 4000) => {
@@ -893,16 +957,70 @@ function Tasks() {
               </div>
 
               <div className="form-group">
-                <label htmlFor="task-desc">Technical Objective</label>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                  <label htmlFor="task-desc" style={{ margin: 0 }}>Technical Objective (Description)</label>
+                  <button
+                    type="button"
+                    onClick={handleAIGenerateDescription}
+                    disabled={isGeneratingAI || !formData.title.trim()}
+                    style={{
+                      background: isGeneratingAI ? "#475569" : "linear-gradient(135deg, #6366f1 0%, #a855f7 100%)",
+                      color: "#ffffff",
+                      border: "none",
+                      padding: "4px 12px",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                      fontWeight: "600",
+                      cursor: (isGeneratingAI || !formData.title.trim()) ? "not-allowed" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      transition: "all 0.2s ease",
+                      boxShadow: "0 2px 8px rgba(99, 102, 241, 0.3)"
+                    }}
+                  >
+                    {isGeneratingAI ? (
+                      <>
+                        <span style={{ display: "inline-block", width: "12px", height: "12px", border: "2px solid #fff", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }}></span>
+                        <span>Generating with AI...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>✨ Generate with AI</span>
+                      </>
+                    )}
+                  </button>
+                </div>
                 <textarea
                   id="task-desc"
                   rows="3"
-                  placeholder="Describe architectural challenges, libraries, or expected outcomes..."
+                  placeholder="Describe architectural challenges, libraries, or expected outcomes (or click 'Generate with AI')..."
                   value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
+                  onChange={(e) => {
+                    setFormData({ ...formData, description: e.target.value });
+                    if (aiGenerated) setAiDisclaimer("✏️ User modified suggestion. Verify accuracy before saving.");
+                  }}
                 ></textarea>
+
+                {/* Supplementary Problem 3: Responsible AI Disclaimer Banner */}
+                {aiDisclaimer && (
+                  <div
+                    style={{
+                      marginTop: "6px",
+                      padding: "6px 10px",
+                      borderRadius: "6px",
+                      fontSize: "11.5px",
+                      background: "rgba(99, 102, 241, 0.12)",
+                      border: "1px solid rgba(99, 102, 241, 0.3)",
+                      color: "#cbd5e1",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px"
+                    }}
+                  >
+                    <span>{aiDisclaimer}</span>
+                  </div>
+                )}
               </div>
 
               <div className="form-row">

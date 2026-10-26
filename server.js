@@ -11,6 +11,7 @@ import { validateTaskInput, validateAuthInput } from './middleware/validate.js';
 import { taskCache } from './cache.js';
 import { taskEvents } from './events.js';
 import './listeners.js';
+import { aiService } from './ai.js';
 
 
 const app = express();
@@ -778,6 +779,58 @@ app.post('/events/simulate-error', (req, res) => {
 app.post('/events/clear-logs', (req, res) => {
   taskEvents.clearLogs();
   return res.status(200).json({ message: 'Event logs cleared successfully.' });
+});
+
+
+// ============================================================================
+// AI API Integration Routes (Practical 13)
+// ============================================================================
+
+/**
+ * POST /api/ai/generate-description
+ * Generates an editable technical description, priority, and category based on task title.
+ * - Stores API key securely server-side (.env)
+ * - Implements rate limiting (Supplementary Problem 2)
+ * - Implements graceful degradation when AI API fails or times out
+ */
+app.post('/api/ai/generate-description', async (req, res) => {
+  try {
+    const { title, category } = req.body || {};
+
+    // 1. Input Validation
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Task title is required to generate a description.'
+      });
+    }
+
+    // 2. Supplementary Problem 2: Rate Limiting
+    const clientId = req.ip || req.headers['x-forwarded-for'] || 'client';
+    const rateCheck = aiService.checkRateLimit(clientId);
+    if (!rateCheck.allowed) {
+      return res.status(429).json({
+        error: 'Too Many Requests',
+        message: rateCheck.message,
+        retryAfterSeconds: rateCheck.retryAfter
+      });
+    }
+
+    // 3. AI Generation with Graceful Degradation
+    const result = await aiService.generateTaskDescription(title, category);
+    return res.status(200).json(result);
+  } catch (err) {
+    console.error(`[AI Route Error] ${err.message}`);
+    // Graceful degradation: never crash the server
+    return res.status(200).json({
+      description: `Execute milestones for "${req.body?.title || 'the specified task'}".`,
+      priority: 'medium',
+      category: req.body?.category || 'General',
+      fallback: true,
+      error: err.message,
+      message: 'AI generation encountered an unexpected issue; fallback description returned.'
+    });
+  }
 });
 
 // Centralized 404 Route Handler

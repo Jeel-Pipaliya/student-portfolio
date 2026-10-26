@@ -1,2 +1,5 @@
 /* Import index.css styles */
 @import "./index.css";
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

@@ -7,7 +7,7 @@ import app from '../server.js';
 const JWT_SECRET = process.env.JWT_SECRET || 'portfolio-jwt-secret-key-2025';
 const testToken = jwt.sign({ id: 'ci-test-user-id', username: 'ci-runner', role: 'student' }, JWT_SECRET, { expiresIn: '1h' });
 
-describe('Practical 12: CI/CD Automated API Test Suite', () => {
+describe('Practical 12 & 13: CI/CD Automated API & AI Test Suite', () => {
   after(() => {
     // Gracefully exit test runner after server handles complete
     setTimeout(() => {
@@ -49,5 +49,26 @@ describe('Practical 12: CI/CD Automated API Test Suite', () => {
     const res = await request(app).get('/api/non-existent-endpoint-404');
     assert.strictEqual(res.status, 404);
     assert.strictEqual(typeof res.body.message, 'string');
+  });
+
+  test('6. Practical 13 AI Feature: POST /api/ai/generate-description returns generated description', async () => {
+    const res = await request(app)
+      .post('/api/ai/generate-description')
+      .send({ title: 'SignBridge AI: Implement Transformer-based Continuous Sign Language Gloss Translator', category: 'AI/ML' });
+    
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(typeof res.body.description, 'string');
+    assert.ok(res.body.description.length > 10, 'Description should be descriptive');
+    assert.ok(['low', 'medium', 'high'].includes(res.body.priority), 'Priority should be valid enum');
+    assert.ok(typeof res.body.fallback === 'boolean', 'Fallback flag must be boolean');
+  });
+
+  test('7. Practical 13 Validation Boundary: POST /api/ai/generate-description without title returns HTTP 400', async () => {
+    const res = await request(app)
+      .post('/api/ai/generate-description')
+      .send({ title: '' });
+    
+    assert.strictEqual(res.status, 400);
+    assert.strictEqual(res.body.error, 'Bad Request');
   });
 });

@@ -212,3 +212,19 @@ export async function checkServerHealth() {
     return false;
   }
 }
+
+
+// ============================================================================
+// AI Assistant API Endpoints (Practical 13)
+// ============================================================================
+
+/**
+ * POST /api/ai/generate-description - Auto-generate task description, priority & category
+ * Calls backend AI service with rate-limiting and graceful degradation
+ */
+export async function generateTaskDescription({ title, category }) {
+  return request('/api/ai/generate-description', {
+    method: 'POST',
+    body: JSON.stringify({ title, category }),
+  });
+}
