@@ -1,0 +1,67 @@
+name: CI Pipeline
+
+# =============================================================================
+# Practical 12: CI/CD Pipeline with GitHub Actions
+# Automated CI workflow running linting, production build, and integration tests
+# Triggers on push and pull requests targeting the main branch (Supplementary 2)
+# Course: ITUE301 | Student: 24AIML051 _Jeel_Pipaliya
+# =============================================================================
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1: Static Code Analysis & Linting (Supplementary Problem 1)
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint & Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run ESLint
+        run: npm run lint
+
+  # ---------------------------------------------------------------------------
+  # Job 2: Production Build & Automated Integration Tests
+  # ---------------------------------------------------------------------------
+  build-and-test:
+    name: Build & Automated Tests
+    needs: lint
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      PORT: 5000
+      JWT_SECRET: super_secret_jwt_key_practical_7_24AIML051
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Vite Production Bundle
+        run: npm run build
+
+      - name: Run Automated Integration Tests
+        run: npm test

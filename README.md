@@ -1,3 +1,5 @@
+[![CI Pipeline](https://github.com/Jeel-Pipaliya/student-portfolio/actions/workflows/ci.yml/badge.svg)](https://github.com/Jeel-Pipaliya/student-portfolio/actions/workflows/ci.yml)
+
 # Jeel's Portfolio
 
 A React-based personal portfolio website developed using React and React Router.
@@ -201,6 +203,51 @@ docker compose ps
 ```
 
 ---
+
+
+---
+
+## Practical 12: CI/CD Pipeline with GitHub Actions
+
+An automated Continuous Integration (CI) pipeline was engineered using **GitHub Actions** (`.github/workflows/ci.yml`) to enforce code quality, verify production builds, and run automated integration test suites on every code change.
+
+### CI Pipeline Architecture & Workflow Stages
+
+```
+git push origin main / Pull Request
+        │
+        ▼
+  GitHub Actions Trigger (on: push, on: pull_request)
+        │
+        ├────────────────────────────────────────┐
+        ▼                                        ▼
+  Job 1: lint                              Job 2: build-and-test (needs: lint)
+   ├── Checkout Code (actions/checkout@v4)  ├── Checkout Code (actions/checkout@v4)
+   ├── Setup Node.js 18 with npm cache      ├── Setup Node.js 18 with npm cache
+   ├── Install Dependencies (npm install)   ├── Install Dependencies (npm install)
+   └── Run ESLint (npm run lint)            ├── Build Vite Bundle (npm run build)
+                                            ├── Run Automated API Tests (npm test)
+                                            └── Report Pass / Fail Status
+                                                 │
+                                                 ▼
+                                           Green Checkmark (✅) or Red X (❌)
+```
+
+- **Automated Workflow (`.github/workflows/ci.yml`):**
+  - Triggered automatically on every `push` and `pull_request` targeting the `main` branch.
+  - Employs GitHub-hosted Ubuntu runners (`ubuntu-latest`) with dependency layer caching via `actions/setup-node@v4`.
+- **Job 1 - Static Code Analysis & Linting (Supplementary Problem 1):**
+  - Runs `npm run lint` using ESLint flat config to detect syntax errors, dead code, and unhandled variables prior to running tests.
+- **Job 2 - Multi-Tier Build & Integration Test Execution:**
+  - `npm run build`: Compiles the Vite React Single-Page Application into optimized static assets (`dist/`), verifying build integrity.
+  - `npm test`: Executes the automated integration test suite (`tests/api.test.js`) evaluating REST endpoints, JWT authorization boundaries, in-memory cache telemetry, and 404 error handlers.
+- **Supplementary Problem 2 - Pull Request Triggers:**
+  - Configured pipeline to run on both direct pushes and pull requests targeting `main`, preventing regressions before merging.
+- **Supplementary Problem 3 - Repository Status Badge:**
+  - Embedded live GitHub Actions workflow status badge in `README.md` reflecting real-time pipeline health.
+- **Deliberate Failure & Recovery Demonstration:**
+  - *Failed Pipeline (Red X ❌):* Demonstrated by altering expected status code in test assertions (e.g. expecting 500 on `GET /tasks`), triggering automated pipeline failure and stopping release deployment.
+  - *Fixed Pipeline (Green Checkmark ✅):* Restored valid assertion logic, triggering instant automated re-run and green status across both `lint` and `build-and-test` jobs.
 
 ## Running the Full-Stack Application Locally
 

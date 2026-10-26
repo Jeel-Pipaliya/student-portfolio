@@ -797,4 +797,9 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(PORT, () => console.log(`Task Management & JWT Auth API running on port ${PORT}`));
+export { app };
+export default app;
+
+if (process.env.NODE_ENV !== "test") {
+  app.listen(PORT, () => console.log(`Task Management & JWT Auth API running on port ${PORT}`));
+}
