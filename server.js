@@ -21,21 +21,28 @@ const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_practical_7_2
 
 let isMongoConnected = false;
 
-// Initial portfolio milestone seeds
+// Initial portfolio milestone seeds based on Jeel Pipaliya's ML projects & research
 const INITIAL_SEEDS = [
   {
-    title: 'SignBridge AI: Train Real-Time ISL Gesture Recognition Model',
-    description: 'Optimize MediaPipe hand landmarks and train a lightweight TensorFlow LSTM classifier for sub-50ms inference.',
+    title: 'CreditWise: Train Loan Approval Classification & Risk Scoring Model',
+    description: 'Perform EDA, feature engineering on applicant DTI & credit scores, and train a Scikit-learn decision classifier.',
     category: 'AI/ML',
     priority: 'high',
     completed: true
   },
   {
-    title: 'CreditWise: Architect Flask Inference Service for Automated Risk Scoring',
-    description: 'Implement automated creditworthiness evaluation pipeline using ensemble gradient boosted trees (LightGBM).',
+    title: 'SmartCart: Engineer Unsupervised Customer Segmentation Pipeline',
+    description: 'Extract RFM features from transaction history and apply K-Means clustering to discover distinct consumer cohorts.',
     category: 'AI/ML',
     priority: 'high',
     completed: false
+  },
+  {
+    title: 'Coursera ML & Algorithm Benchmarks: Verify 94% and 95% Certifications',
+    description: 'Integrate verified credential verification endpoints and mathematical optimization algorithms into portfolio.',
+    category: 'Architecture',
+    priority: 'medium',
+    completed: true
   },
   {
     title: 'Portfolio: Build Express REST Engine with Middleware Pipeline',
@@ -45,18 +52,18 @@ const INITIAL_SEEDS = [
     completed: true
   },
   {
-    title: 'REST Architecture: Deploy HATEOAS Dynamic Hypermedia Controls',
-    description: 'Implement self-describing RESTful hypermedia contracts (_links) enabling autonomous client-driven resource state transitions.',
-    category: 'Architecture',
+    title: 'DevOps: Automate Docker Containerization & GitHub CI/CD Workflows',
+    description: 'Configure automated testing pipelines and multi-stage container builds for rapid deployment (Practicals 11 & 12).',
+    category: 'Cloud/DevOps',
     priority: 'medium',
     completed: true
   },
   {
-    title: 'DevOps: Automate Docker Containerization & GitHub CI/CD Workflows',
-    description: 'Configure automated testing pipelines and multi-stage container builds for rapid deployment.',
-    category: 'Cloud/DevOps',
-    priority: 'medium',
-    completed: false
+    title: 'AI Synthesis: Integrate OpenAI GPT-4o-mini with Graceful Degradation',
+    description: 'Deploy server-side AI proxy with rate limiting, error boundaries, and editable suggestion UI (Practical 13).',
+    category: 'AI/ML',
+    priority: 'high',
+    completed: true
   }
 ];
 

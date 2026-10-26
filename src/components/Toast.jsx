@@ -5,18 +5,20 @@
 import React, { useEffect } from 'react';
 
 export default function Toast({ toast, onClose }) {
-  if (!toast) return null;
-
-  const { id, type = 'info', title, message, duration = 4000 } = toast;
+  const id = toast?.id;
+  const duration = toast?.duration ?? 4000;
 
   useEffect(() => {
-    if (duration > 0) {
-      const timer = setTimeout(() => {
-        onClose(id);
-      }, duration);
-      return () => clearTimeout(timer);
-    }
-  }, [id, duration, onClose]);
+    if (!toast || duration <= 0) return;
+    const timer = setTimeout(() => {
+      onClose(id);
+    }, duration);
+    return () => clearTimeout(timer);
+  }, [id, duration, onClose, toast]);
+
+  if (!toast) return null;
+
+  const { type = 'info', title, message } = toast;
 
   const getIcon = () => {
     switch (type) {
